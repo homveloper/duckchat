@@ -1,0 +1,387 @@
+package layouts
+
+import (
+	"duckchat/internal/ui/models"
+)
+
+// BaseLayoutData contains data for the base layout template
+type BaseLayoutData struct {
+	Title         string
+	CurrentUser   *models.UserContext
+	CSRFToken     string
+	BodyClass     string
+	HeaderContent templ.Component
+	FooterContent templ.Component
+	LayoutState   *models.ResponsiveLayoutState
+	NavigationComponent templ.Component
+	Scripts       []string
+	Styles        []string
+}
+
+// NewBaseLayoutData creates a new BaseLayoutData with defaults
+func NewBaseLayoutData(title string, user *models.UserContext, csrfToken string) *BaseLayoutData {
+	return &BaseLayoutData{
+		Title:       title,
+		CurrentUser: user,
+		CSRFToken:   csrfToken,
+		BodyClass:   "",
+		Scripts:     make([]string, 0),
+		Styles:      make([]string, 0),
+		LayoutState: models.NewResponsiveLayoutState(),
+	}
+}
+
+// BaseLayout provides the main HTML structure for all pages
+templ BaseLayout(data *BaseLayoutData, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en" class={ data.LayoutState.GetThemeClass() }>
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+			<title>{ data.Title }</title>
+
+			<!-- Security headers via meta tags -->
+			<meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+			<meta http-equiv="X-XSS-Protection" content="1; mode=block"/>
+			<meta name="referrer" content="strict-origin-when-cross-origin"/>
+
+			<!-- Progressive Web App metadata -->
+			<meta name="theme-color" content="#3b82f6"/>
+			<meta name="mobile-web-app-capable" content="yes"/>
+			<meta name="apple-mobile-web-app-capable" content="yes"/>
+			<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+			<meta name="apple-mobile-web-app-title" content="DuckChat"/>
+
+			<!-- CSS - Mobile-first Tailwind CSS -->
+			<link href="/static/output.css" rel="stylesheet"/>
+
+			<!-- Additional stylesheets -->
+			for _, style := range data.Styles {
+				<link href={ style } rel="stylesheet"/>
+			}
+
+			<!-- HTMX for dynamic interactions -->
+			<script src="https://unpkg.com/htmx.org@1.9.6" defer></script>
+			<!-- HTMX SSE Extension -->
+			<script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js" defer></script>
+			<!-- Alpine.js for client-side interactivity -->
+			<script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+			<script defer>
+				// Configure HTMX for mobile optimization
+				document.addEventListener('htmx:configRequest', function(e) {
+					// Add CSRF token to all HTMX requests
+					e.detail.headers['X-CSRF-Token'] = '{ data.CSRFToken }';
+				});
+
+				// Handle connection status for SSE
+				document.addEventListener('htmx:sseError', function(e) {
+					console.warn('SSE connection error:', e.detail);
+					document.body.classList.add('disconnected');
+				});
+
+				document.addEventListener('htmx:sseOpen', function(e) {
+					console.log('SSE connection established');
+					document.body.classList.remove('disconnected');
+				});
+
+				// Loading indicator management
+				const loadingIndicator = document.getElementById('loading-indicator');
+
+				document.addEventListener('htmx:beforeRequest', function(e) {
+					if (loadingIndicator) {
+						loadingIndicator.style.opacity = '1';
+					}
+				});
+
+				document.addEventListener('htmx:afterRequest', function(e) {
+					if (loadingIndicator) {
+						loadingIndicator.style.opacity = '0';
+					}
+				});
+
+				// Mobile touch optimizations
+				if ('ontouchstart' in window) {
+					document.body.classList.add('touch-device');
+				}
+			</script>
+		</head>
+		<body
+			class={ "min-h-screen bg-gray-50 text-gray-900", data.BodyClass, data.LayoutState.GetDeviceClasses() }
+			data-theme={ data.LayoutState.Theme }
+			data-device-type={ data.LayoutState.DeviceType }
+		>
+			<!-- Skip navigation link for accessibility -->
+			<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-duck-blue-600 text-white px-4 py-2 rounded-lg z-50">
+				Skip to main content
+			</a>
+
+			<!-- Connection status indicator (hidden by default, shown when disconnected) -->
+			<div id="connection-status"
+				class="fixed top-0 left-0 right-0 bg-red-600 text-white text-center py-2 text-sm transform -translate-y-full transition-transform duration-300 z-50"
+				data-testid="connection-status"
+			>
+				Connection lost. Attempting to reconnect...
+			</div>
+
+			<!-- Loading indicator for HTMX requests -->
+			<div id="loading-indicator"
+				class="fixed top-4 right-4 bg-duck-blue-600 text-white px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 z-50"
+				data-testid="loading-indicator"
+			>
+				<div class="flex items-center gap-2">
+					<div class="loading-spinner"></div>
+					<span>Loading...</span>
+				</div>
+			</div>
+
+			<!-- Navigation (outside main content) -->
+			if data.NavigationComponent != nil {
+				@data.NavigationComponent
+			}
+
+			<!-- Main app container -->
+			<div class="flex flex-col min-h-screen" data-testid="app-container">
+				<!-- Header (optional) -->
+				if data.HeaderContent != nil {
+					<header class="safe-area-padding bg-white shadow-sm border-b border-gray-200" role="banner">
+						@data.HeaderContent
+					</header>
+				}
+
+				<!-- Main content area -->
+				<main
+					id="main-content"
+					class={
+						func() string {
+							base := "flex-1 safe-area-padding"
+							if data.LayoutState.DeviceType != "mobile" {
+								base += " tablet-layout"
+							}
+							if data.LayoutState.DeviceType == "mobile" {
+								base += " mobile-layout"
+							}
+							return base
+						}()
+					}
+					role="main"
+					data-testid="main-content"
+				>
+					@content
+				</main>
+
+				<!-- Footer (optional) -->
+				if data.FooterContent != nil {
+					<footer class="safe-area-padding bg-white border-t border-gray-200 mt-auto" role="contentinfo">
+						@data.FooterContent
+					</footer>
+				}
+			</div>
+
+			<!-- User context data for JavaScript (if user is logged in) -->
+			if data.CurrentUser != nil {
+				<script type="application/json" id="user-context" data-testid="user-context">
+					{
+						"id": "{ data.CurrentUser.ID }",
+						"username": "{ data.CurrentUser.Username }",
+						"isOnline": { data.CurrentUser.IsOnline }
+					}
+				</script>
+			}
+
+			<!-- CSRF token for forms -->
+			<meta name="csrf-token" content={ data.CSRFToken }/>
+
+			<!-- Additional scripts -->
+			for _, script := range data.Scripts {
+				<script src={ script } defer></script>
+			}
+
+			<!-- Service worker registration for PWA (if available) -->
+			<script defer>
+				// Only register service worker in production and if file exists
+				if ('serviceWorker' in navigator && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+					// Check if service worker file exists before registering
+					fetch('/static/sw.js', { method: 'HEAD' })
+						.then(function(response) {
+							if (response.ok) {
+								return navigator.serviceWorker.register('/static/sw.js');
+							} else {
+								console.log('Service Worker file not found, skipping registration');
+								return Promise.reject('SW file not found');
+							}
+						})
+						.then(function(reg) {
+							console.log('ServiceWorker registration successful');
+						})
+						.catch(function(err) {
+							console.log('ServiceWorker registration skipped:', err);
+						});
+				} else {
+					console.log('ServiceWorker registration skipped (development mode)');
+				}
+			</script>
+
+			<!-- Handle responsive design changes -->
+			<script defer>
+				// Update layout state on resize
+				function updateLayoutState() {
+					const width = window.innerWidth;
+					const body = document.body;
+
+					// Remove all device type classes
+					body.classList.remove('device-mobile', 'device-tablet', 'device-desktop', 'device-large');
+
+					// Add current device class
+					if (width < 768) {
+						body.classList.add('device-mobile');
+						body.dataset.deviceType = 'mobile';
+					} else if (width < 1024) {
+						body.classList.add('device-tablet');
+						body.dataset.deviceType = 'tablet';
+					} else if (width < 1280) {
+						body.classList.add('device-desktop');
+						body.dataset.deviceType = 'desktop';
+					} else {
+						body.classList.add('device-large');
+						body.dataset.deviceType = 'large';
+					}
+
+					// Update orientation
+					const orientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+					body.dataset.orientation = orientation;
+
+					// Trigger custom event for components that need to respond
+					window.dispatchEvent(new CustomEvent('layoutChange', {
+						detail: {
+							width: width,
+							height: window.innerHeight,
+							deviceType: body.dataset.deviceType,
+							orientation: orientation
+						}
+					}));
+				}
+
+				// Update on load and resize
+				updateLayoutState();
+				window.addEventListener('resize', updateLayoutState);
+				window.addEventListener('orientationchange', function() {
+					// Small delay to ensure dimensions are updated
+					setTimeout(updateLayoutState, 100);
+				});
+			</script>
+
+			<!-- Handle disconnected state styling -->
+			<style>
+				/* Connection status animations */
+				.disconnected #connection-status {
+					transform: translateY(0);
+				}
+
+				/* Reduced motion support */
+				@media (prefers-reduced-motion: reduce) {
+					#connection-status {
+						transition: none;
+					}
+				}
+
+				/* High contrast mode support */
+				@media (prefers-contrast: high) {
+					.bg-white {
+						background-color: #ffffff !important;
+						border-color: #000000 !important;
+					}
+
+					.text-gray-900 {
+						color: #000000 !important;
+					}
+				}
+
+				/* Dark mode support */
+				@media (prefers-color-scheme: dark) {
+					html.theme-auto body {
+						background-color: #1f2937;
+						color: #f9fafb;
+					}
+				}
+
+				/* Custom properties for dynamic theming */
+				:root {
+					--primary-color: #3b82f6;
+					--primary-hover: #2563eb;
+					--background-color: #f9fafb;
+					--text-color: #111827;
+					--border-color: #e5e7eb;
+				}
+
+				[data-theme="dark"] {
+					--background-color: #1f2937;
+					--text-color: #f9fafb;
+					--border-color: #374151;
+				}
+			</style>
+		</body>
+	</html>
+}
+
+// SimpleHeader provides a basic header with user info and navigation
+templ SimpleHeader(user *models.UserContext, roomName string) {
+	<div class="flex items-center justify-between px-4 py-3">
+		<div class="flex items-center gap-3">
+			<!-- Back button for mobile -->
+			<button
+				class="btn-touch p-2 md:hidden"
+				onclick="history.back()"
+				aria-label="Go back"
+				data-testid="back-button"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+				</svg>
+			</button>
+
+			<!-- Room/Page title -->
+			if roomName != "" {
+				<h1 class="font-semibold text-lg" data-testid="page-title">{ roomName }</h1>
+			}
+		</div>
+
+		<div class="flex items-center gap-3">
+			if user != nil {
+				<!-- User info -->
+				<div class="hidden sm:flex items-center gap-2" data-testid="user-info">
+					if user.AvatarURL != nil {
+						<img
+							src={ *user.AvatarURL }
+							alt={ user.Username + " avatar" }
+							class="w-8 h-8 rounded-full"
+						/>
+					} else {
+						<div class="w-8 h-8 rounded-full bg-duck-blue-500 flex items-center justify-center text-white text-sm font-medium">
+							{ string(user.Username[0]) }
+						</div>
+					}
+					<span class="text-sm font-medium">{ user.Username }</span>
+				</div>
+
+				<!-- Mobile menu button -->
+				<button
+					class="btn-touch p-2 md:hidden"
+					aria-label="Open menu"
+					data-testid="menu-button"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+					</svg>
+				</button>
+			}
+		</div>
+	</div>
+}
+
+// SimpleFooter provides a basic footer
+templ SimpleFooter() {
+	<div class="text-center py-4 text-sm text-gray-500">
+		<p>&copy; 2024 DuckChat. Built with ❤️ and Go.</p>
+	</div>
+}

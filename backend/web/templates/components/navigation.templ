@@ -1,0 +1,354 @@
+package components
+
+import (
+	"duckchat/internal/ui/models"
+	"duckchat/web/templates/layouts"
+)
+
+// NavigationData represents the data needed for navigation rendering
+type NavigationData struct {
+	Navigation *models.NavigationData
+	CurrentURL string
+}
+
+// Navigation renders the responsive navigation bar component
+templ Navigation(data *NavigationData) {
+	<nav
+		class="nav-container"
+		x-data="{
+			activeSection: 'chat',
+			getCurrentSection() {
+				const path = window.location.pathname;
+				if (path.startsWith('/rooms') || path.startsWith('/chat')) return 'chat';
+				if (path.startsWith('/profile')) return 'profile';
+				return 'chat';
+			},
+			updateActiveSection() {
+				this.activeSection = this.getCurrentSection();
+			},
+			init() {
+				this.activeSection = this.getCurrentSection();
+			}
+		}"
+		x-init="
+			updateActiveSection();
+			// Listen for HTMX navigation
+			document.addEventListener('htmx:afterRequest', () => updateActiveSection());
+			// Listen for browser navigation
+			window.addEventListener('popstate', () => updateActiveSection());
+		"
+		role="navigation"
+		aria-label="Main navigation"
+		data-testid="main-navigation"
+	>
+		for _, item := range data.Navigation.Items {
+			@NavigationItem(item, data.Navigation)
+		}
+	</nav>
+}
+
+// NavigationItem renders a single navigation item
+templ NavigationItem(item models.NavigationItem, navData *models.NavigationData) {
+	<a
+		href={ templ.URL(item.URL) }
+		class="nav-item"
+		:class="{
+			'nav-item-active text-duck-blue-600 bg-duck-blue-50': activeSection === '{ string(item.Section) }',
+			'nav-item-inactive text-gray-600 hover:text-duck-blue-600 hover:bg-gray-50': activeSection !== '{ string(item.Section) }'
+		}"
+		hx-get={ item.URL }
+		hx-target="main"
+		hx-push-url="true"
+		hx-indicator="#loading-indicator"
+		role="menuitem"
+		:aria-current="activeSection === '{ string(item.Section) }' ? 'page' : null"
+		aria-label={ item.Tooltip }
+		data-testid={ "nav-" + item.ID }
+		@click="activeSection = '{ string(item.Section) }'"
+	>
+		<!-- Icon -->
+		<div class="nav-icon-container">
+			<svg
+				class="nav-icon"
+				fill={ item.Icon.Fill }
+				stroke={ item.Icon.Stroke }
+				viewBox={ item.Icon.ViewBox }
+				aria-hidden="true"
+			>
+				<path
+					if item.Icon.Outlined {
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1.5"
+					}
+					d={ item.Icon.SVGPath }
+				></path>
+			</svg>
+			<!-- Badge indicator -->
+			if item.BadgeCount > 0 {
+				<span
+					class="nav-badge absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-5 h-5 flex items-center justify-center px-1"
+					data-testid={ "badge-" + item.ID }
+				>
+					if item.BadgeCount > 99 {
+						99+
+					} else {
+						{ models.IntToString(item.BadgeCount) }
+					}
+				</span>
+			}
+		</div>
+
+		<!-- Label -->
+		<span class="nav-label">{ item.Label }</span>
+	</a>
+}
+
+// MobileNavigation renders navigation optimized for mobile layout
+templ MobileNavigation(data *NavigationData) {
+	<nav
+		class="mobile-nav-container fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-padding z-50"
+		x-data="{
+			activeSection: 'chat',
+			getCurrentSection() {
+				const path = window.location.pathname;
+				if (path.startsWith('/rooms') || path.startsWith('/chat')) return 'chat';
+				if (path.startsWith('/profile')) return 'profile';
+				return 'chat';
+			},
+			updateActiveSection() {
+				this.activeSection = this.getCurrentSection();
+			}
+		}"
+		x-init="
+			updateActiveSection();
+			document.addEventListener('htmx:afterRequest', () => updateActiveSection());
+		"
+		role="navigation"
+		aria-label="Mobile navigation"
+		data-testid="mobile-navigation"
+	>
+		<div class="flex flex-row">
+			for _, item := range data.Navigation.Items {
+				@MobileNavigationItem(item)
+			}
+		</div>
+	</nav>
+}
+
+// MobileNavigationItem renders a navigation item optimized for mobile
+templ MobileNavigationItem(item models.NavigationItem) {
+	<a
+		href={ templ.URL(item.URL) }
+		class="flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-touch relative"
+		:class="{
+			'text-duck-blue-600 bg-duck-blue-50': activeSection === '{ string(item.Section) }',
+			'text-gray-600 hover:text-duck-blue-600': activeSection !== '{ string(item.Section) }'
+		}"
+		hx-get={ item.URL }
+		hx-target="main"
+		hx-push-url="true"
+		role="menuitem"
+		:aria-current="activeSection === '{ string(item.Section) }' ? 'page' : null"
+		aria-label={ item.Tooltip }
+		data-testid={ "mobile-nav-" + item.ID }
+		@click="activeSection = '{ string(item.Section) }'"
+	>
+		<!-- Icon container with badge -->
+		<div class="relative mb-1">
+			<svg
+				class="w-6 h-6"
+				fill={ item.Icon.Fill }
+				stroke={ item.Icon.Stroke }
+				viewBox={ item.Icon.ViewBox }
+				aria-hidden="true"
+			>
+				<path
+					if item.Icon.Outlined {
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1.5"
+					}
+					d={ item.Icon.SVGPath }
+				></path>
+			</svg>
+			if item.BadgeCount > 0 {
+				<span
+					class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-5 h-5 flex items-center justify-center px-1"
+					data-testid={ "mobile-badge-" + item.ID }
+				>
+					if item.BadgeCount > 99 {
+						99+
+					} else {
+						{ models.IntToString(item.BadgeCount) }
+					}
+				</span>
+			}
+		</div>
+
+		<!-- Label -->
+		<span class="text-xs font-medium leading-none">{ item.Label }</span>
+	</a>
+}
+
+// DesktopNavigation renders navigation optimized for desktop layout
+templ DesktopNavigation(data *NavigationData) {
+	<nav
+		class="desktop-nav-container fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50 flex flex-col"
+		x-data="{
+			activeSection: 'chat',
+			getCurrentSection() {
+				const path = window.location.pathname;
+				if (path.startsWith('/rooms') || path.startsWith('/chat')) return 'chat';
+				if (path.startsWith('/profile')) return 'profile';
+				return 'chat';
+			},
+			updateActiveSection() {
+				this.activeSection = this.getCurrentSection();
+			}
+		}"
+		x-init="
+			updateActiveSection();
+			document.addEventListener('htmx:afterRequest', () => updateActiveSection());
+		"
+		role="navigation"
+		aria-label="Desktop navigation"
+		data-testid="desktop-navigation"
+	>
+		<!-- Navigation header -->
+		<div class="p-4 border-b border-gray-200">
+			<h2 class="text-lg font-semibold text-gray-900">DuckChat</h2>
+		</div>
+
+		<!-- Navigation items -->
+		<div class="flex-1 py-4">
+			for _, item := range data.Navigation.Items {
+				@DesktopNavigationItem(item)
+			}
+		</div>
+	</nav>
+}
+
+// DesktopNavigationItem renders a navigation item optimized for desktop
+templ DesktopNavigationItem(item models.NavigationItem) {
+	<a
+		href={ templ.URL(item.URL) }
+		class="flex items-center px-4 py-3 mx-2 rounded-lg transition-colors duration-200"
+		:class="{
+			'text-duck-blue-600 bg-duck-blue-50': activeSection === '{ string(item.Section) }',
+			'text-gray-600 hover:text-duck-blue-600 hover:bg-gray-50': activeSection !== '{ string(item.Section) }'
+		}"
+		hx-get={ item.URL }
+		hx-target="main"
+		hx-push-url="true"
+		role="menuitem"
+		:aria-current="activeSection === '{ string(item.Section) }' ? 'page' : null"
+		aria-label={ item.Tooltip }
+		data-testid={ "desktop-nav-" + item.ID }
+		@click="activeSection = '{ string(item.Section) }'"
+	>
+		<!-- Icon -->
+		<div class="relative mr-3">
+			<svg
+				class="w-5 h-5"
+				fill={ item.Icon.Fill }
+				stroke={ item.Icon.Stroke }
+				viewBox={ item.Icon.ViewBox }
+				aria-hidden="true"
+			>
+				<path
+					if item.Icon.Outlined {
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="1.5"
+					}
+					d={ item.Icon.SVGPath }
+				></path>
+			</svg>
+			if item.BadgeCount > 0 {
+				<span
+					class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-5 h-5 flex items-center justify-center px-1"
+					data-testid={ "desktop-badge-" + item.ID }
+				>
+					if item.BadgeCount > 99 {
+						99+
+					} else {
+						{ models.IntToString(item.BadgeCount) }
+					}
+				</span>
+			}
+		</div>
+
+		<!-- Label -->
+		<span class="font-medium">{ item.Label }</span>
+	</a>
+}
+
+
+// ProfilePage renders the user profile page with navigation
+templ ProfilePage(user *models.UserContext, navData *NavigationData, layoutData *layouts.BaseLayoutData) {
+	@layouts.BaseLayout(layoutData, ProfilePageContent(user, navData))
+}
+
+// ProfilePageContent renders the profile page content only
+templ ProfilePageContent(user *models.UserContext, navData *NavigationData) {
+	<!-- Profile content -->
+	<div class="profile-content p-6 max-w-2xl mx-auto">
+		<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+			<h1 class="text-2xl font-bold text-gray-900 mb-6">Profile</h1>
+
+			<!-- User info section -->
+			<div class="space-y-4">
+				<div class="flex items-center gap-4">
+					if user.AvatarURL != nil {
+						<img
+							src={ *user.AvatarURL }
+							alt={ user.Username + " avatar" }
+							class="w-16 h-16 rounded-full"
+						/>
+					} else {
+						<div class="w-16 h-16 rounded-full bg-duck-blue-500 flex items-center justify-center text-white text-2xl font-medium">
+							{ string(user.Username[0]) }
+						</div>
+					}
+					<div>
+						<h2 class="text-xl font-semibold text-gray-900">{ user.Username }</h2>
+						<p class="text-sm text-gray-600">Guest User</p>
+					</div>
+				</div>
+
+				<!-- Status indicator -->
+				<div class="flex items-center gap-2">
+					<div class="w-3 h-3 bg-green-500 rounded-full"></div>
+					<span class="text-sm text-gray-600">Online</span>
+				</div>
+
+				<!-- Profile actions -->
+				<div class="pt-4 border-t border-gray-200">
+					<h3 class="text-lg font-medium text-gray-900 mb-3">Account Actions</h3>
+					<div class="space-y-2">
+						<button
+							type="button"
+							class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+						>
+							Edit Profile (Coming Soon)
+						</button>
+						<button
+							type="button"
+							class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+						>
+							Notification Settings (Coming Soon)
+						</button>
+						<button
+							type="button"
+							class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
+							onclick="if(confirm('Are you sure you want to logout?')) { window.location.href='/logout'; }"
+						>
+							Logout
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+}

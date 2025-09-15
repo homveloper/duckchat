@@ -1,0 +1,655 @@
+package components
+
+import (
+	"duckchat/internal/ui/models"
+	"fmt"
+)
+
+// MessageInputData contains data for the message input component
+type MessageInputData struct {
+	InputState       *models.MessageInputState
+	LayoutState      *models.ResponsiveLayoutState
+	IsConnected      bool
+	CSRFToken        string
+	CanSendMessages  bool
+	ShowEmojiPicker  bool
+	ShowFileUpload   bool
+	MaxFileSize      int64
+	AllowedFileTypes []string
+	RateLimitWarning string
+}
+
+// NewMessageInputData creates a new MessageInputData with defaults
+func NewMessageInputData(inputState *models.MessageInputState) *MessageInputData {
+	return &MessageInputData{
+		InputState:       inputState,
+		IsConnected:      true,
+		CanSendMessages:  true,
+		ShowEmojiPicker:  true,
+		ShowFileUpload:   true,
+		MaxFileSize:      10 * 1024 * 1024, // 10MB
+		AllowedFileTypes: []string{"image/jpeg", "image/png", "image/gif", "text/plain", "application/pdf"},
+		RateLimitWarning: "",
+	}
+}
+
+// MessageInput renders the message input component
+templ MessageInput(data *MessageInputData) {
+	<div
+		class="message-input-container p-4 space-y-3"
+		data-testid="message-input-container"
+		data-room-id={ data.InputState.RoomID }
+	>
+		<!-- Connection status warning (shown when disconnected) -->
+		if !data.IsConnected {
+			<div
+				class="connection-warning flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800"
+				role="alert"
+				data-testid="connection-warning"
+			>
+				<svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 24 24">
+					<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+				</svg>
+				<span>You're disconnected. Messages won't be sent until reconnected.</span>
+			</div>
+		}
+
+		<!-- Validation error message -->
+		if data.InputState.ValidationError != "" {
+			<div
+				class="validation-error bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm"
+				role="alert"
+				data-testid="validation-error"
+			>
+				{ data.InputState.ValidationError }
+			</div>
+		}
+
+		<!-- Rate limit warning -->
+		if data.InputState.RateLimitRemaining <= 2 {
+			<div
+				class="rate-limit-warning bg-orange-50 border border-orange-200 text-orange-700 px-3 py-2 rounded-lg text-sm"
+				role="alert"
+				data-testid="rate-limit-warning"
+			>
+				{ fmt.Sprintf("Rate limit: %d messages remaining this minute", data.InputState.RateLimitRemaining) }
+			</div>
+		}
+
+		<!-- Main input form -->
+		<form
+			class="message-input-form"
+			method="POST"
+			action={ templ.SafeURL(fmt.Sprintf("/rooms/%s/messages", data.InputState.RoomID)) }
+			hx-post={ fmt.Sprintf("/rooms/%s/messages", data.InputState.RoomID) }
+			hx-target="#message-list"
+			hx-swap="beforeend"
+			hx-indicator="#send-spinner"
+			hx-disabled-elt="#message-submit"
+			data-testid="message-form"
+		>
+			<!-- CSRF Token -->
+			<input type="hidden" name="csrf_token" value={ data.CSRFToken }/>
+
+			<!-- Message input container -->
+			<div class="message-input-wrapper relative">
+				<!-- Input field -->
+				<div
+					class={
+						"message-input-field relative border rounded-lg bg-white transition-colors",
+						func() string {
+							if data.InputState.HasError() {
+								return "border-red-300 focus-within:ring-red-500"
+							}
+							return "border-gray-300 focus-within:ring-duck-blue-500"
+						}(),
+						templ.KV("bg-gray-100", !data.IsConnected)
+					}
+				>
+					<!-- File upload area (drag and drop) -->
+					if data.ShowFileUpload {
+						<div
+							id="file-drop-area"
+							class="file-drop-area absolute inset-0 hidden bg-duck-blue-50 border-2 border-dashed border-duck-blue-300 rounded-lg flex items-center justify-center z-10"
+							data-testid="file-drop-area"
+						>
+							<div class="text-center p-4">
+								<svg class="w-8 h-8 text-duck-blue-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+								</svg>
+								<p class="text-sm text-duck-blue-700 font-medium">Drop files here to upload</p>
+								<p class="text-xs text-duck-blue-600 mt-1">
+									Max { fmt.Sprintf("%.1fMB", float64(data.MaxFileSize)/(1024*1024)) } per file
+								</p>
+							</div>
+						</div>
+					}
+
+					<!-- Message textarea -->
+					<textarea
+						id="message-content"
+						name="content"
+						class="message-textarea w-full px-4 py-3 pr-24 border-0 rounded-lg resize-none focus:ring-0 focus:outline-none placeholder-gray-500 text-sm leading-relaxed"
+						placeholder={ getInputPlaceholder(data.IsConnected, data.InputState.RateLimitRemaining) }
+						rows="1"
+						maxlength={ fmt.Sprintf("%d", models.MaxMessageLength) }
+						disabled?={ data.InputState.IsSending || !data.IsConnected }
+						data-testid="message-textarea"
+						hx-trigger="input changed delay:500ms"
+						hx-post={ fmt.Sprintf("/rooms/%s/typing", data.InputState.RoomID) }
+						hx-swap="none"
+						style="min-height: 42px; max-height: 120px;"
+					>{ data.InputState.Content }</textarea>
+
+					<!-- Input controls (right side) -->
+					<div class="message-input-controls absolute right-2 bottom-2 flex items-center gap-1">
+						<!-- Emoji picker button -->
+						if data.ShowEmojiPicker {
+							<button
+								type="button"
+								class="btn-touch p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
+								onclick="toggleEmojiPicker()"
+								aria-label="Add emoji"
+								data-testid="emoji-button"
+								disabled?={ data.InputState.IsSending || !data.IsConnected }
+							>
+								<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+									<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-4-4h3V9h2v4h3l-4 4zm2-8.5c.83 0 1.5-.67 1.5-1.5S12.83 5.5 12 5.5 10.5 6.17 10.5 7 11.17 8.5 12 8.5z"/>
+								</svg>
+							</button>
+						}
+
+						<!-- File upload button -->
+						if data.ShowFileUpload {
+							<button
+								type="button"
+								class="btn-touch p-1.5 text-gray-400 hover:text-gray-600 rounded transition-colors"
+								onclick="document.getElementById('file-input').click()"
+								aria-label="Attach file"
+								data-testid="file-upload-button"
+								disabled?={ data.InputState.IsSending || !data.IsConnected }
+							>
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+								</svg>
+							</button>
+						}
+
+						<!-- Send button -->
+						<button
+							id="message-submit"
+							type="submit"
+							class={
+								"btn-touch p-1.5 rounded transition-colors",
+								templ.KV("text-duck-blue-600 hover:text-duck-blue-700 hover:bg-duck-blue-50", data.InputState.CanSend()),
+								templ.KV("text-gray-300 cursor-not-allowed", !data.InputState.CanSend())
+							}
+							disabled?={ !data.InputState.CanSend() }
+							aria-label="Send message"
+							data-testid="send-button"
+						>
+							if data.InputState.IsSending {
+								<svg id="send-spinner" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+									<path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+								</svg>
+							} else {
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+								</svg>
+							}
+						</button>
+					</div>
+				</div>
+
+				<!-- Character count and status -->
+				<div class="message-input-status flex items-center justify-between mt-2 text-xs text-gray-500">
+					<div class="flex items-center gap-4">
+						<!-- Connection status -->
+						if data.IsConnected {
+							<div class="flex items-center gap-1">
+								<div class="w-2 h-2 bg-green-500 rounded-full"></div>
+								<span>Connected</span>
+							</div>
+						} else {
+							<div class="flex items-center gap-1">
+								<div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+								<span>Disconnected</span>
+							</div>
+						}
+
+						<!-- Rate limit status -->
+						if data.InputState.RateLimitRemaining < models.MaxMessagesPerMinute {
+							<span>
+								{ fmt.Sprintf("%d/%d messages", models.MaxMessagesPerMinute-data.InputState.RateLimitRemaining, models.MaxMessagesPerMinute) }
+							</span>
+						}
+					</div>
+
+					<!-- Character count -->
+					<div
+						class={
+							templ.KV("text-red-500", data.InputState.IsAtCharacterLimit()),
+							templ.KV("text-yellow-600", data.InputState.CharacterCount > models.MaxMessageLength*4/5),
+							templ.KV("text-gray-500", data.InputState.CharacterCount <= models.MaxMessageLength*4/5)
+						}
+					>
+						{ fmt.Sprintf("%d/%d", data.InputState.CharacterCount, models.MaxMessageLength) }
+					</div>
+				</div>
+
+				<!-- Hidden file input -->
+				if data.ShowFileUpload {
+					<input
+						type="file"
+						id="file-input"
+						class="hidden"
+						multiple
+						accept={ getAcceptedFileTypes(data.AllowedFileTypes) }
+						data-testid="file-input"
+					/>
+				}
+			</div>
+		</form>
+
+		<!-- Emoji picker (hidden by default) -->
+		if data.ShowEmojiPicker {
+			<div
+				id="emoji-picker"
+				class="emoji-picker hidden absolute bottom-16 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-20"
+				data-testid="emoji-picker"
+			>
+				<div class="grid grid-cols-8 gap-1">
+					for _, emoji := range getCommonEmojis() {
+						<button
+							type="button"
+							class="emoji-button p-1 hover:bg-gray-100 rounded text-lg"
+							onclick="insertEmoji(this.textContent)"
+							data-testid="emoji-option"
+						>
+							{ emoji }
+						</button>
+					}
+				</div>
+			</div>
+		}
+	</div>
+
+	<!-- Message input JavaScript -->
+	<script>
+		// Message input management
+		const MessageInput = {
+			textarea: null,
+			form: null,
+			roomId: '{ data.InputState.RoomID }',
+			isConnected: { data.IsConnected },
+			typingTimer: null,
+			isTyping: false,
+			lastTypingTime: 0,
+			typingThrottleMs: { models.TypingThrottleMs },
+
+			init() {
+				this.textarea = document.getElementById('message-content');
+				this.form = document.querySelector('[data-testid="message-form"]');
+				this.setupTextareaHandlers();
+				this.setupFormHandlers();
+				this.setupFileUpload();
+				this.setupKeyboardShortcuts();
+				this.setupEmojiPicker();
+			},
+
+			setupTextareaHandlers() {
+				if (!this.textarea) return;
+
+				// Auto-resize textarea
+				this.textarea.addEventListener('input', () => {
+					this.autoResize();
+					this.updateCharacterCount();
+					this.handleTyping();
+				});
+
+				// Handle Enter key (send on Enter, new line on Shift+Enter)
+				this.textarea.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter' && !e.shiftKey) {
+						e.preventDefault();
+						this.submitMessage();
+					}
+				});
+
+				// Focus on page load
+				this.textarea.focus();
+			},
+
+			setupFormHandlers() {
+				if (!this.form) return;
+
+				this.form.addEventListener('htmx:beforeRequest', () => {
+					this.setSubmitting(true);
+				});
+
+				this.form.addEventListener('htmx:afterRequest', (e) => {
+					this.setSubmitting(false);
+					if (e.detail.xhr.status === 200) {
+						this.clearInput();
+						this.stopTyping();
+					}
+				});
+
+				this.form.addEventListener('htmx:responseError', () => {
+					this.setSubmitting(false);
+				});
+			},
+
+			setupFileUpload() {
+				const fileInput = document.getElementById('file-input');
+				const dropArea = document.getElementById('file-drop-area');
+
+				if (!fileInput || !dropArea) return;
+
+				// File selection handler
+				fileInput.addEventListener('change', (e) => {
+					this.handleFileSelection(e.target.files);
+				});
+
+				// Drag and drop handlers
+				this.textarea.addEventListener('dragover', (e) => {
+					e.preventDefault();
+					dropArea.classList.remove('hidden');
+				});
+
+				dropArea.addEventListener('dragover', (e) => {
+					e.preventDefault();
+				});
+
+				dropArea.addEventListener('dragleave', (e) => {
+					if (!dropArea.contains(e.relatedTarget)) {
+						dropArea.classList.add('hidden');
+					}
+				});
+
+				dropArea.addEventListener('drop', (e) => {
+					e.preventDefault();
+					dropArea.classList.add('hidden');
+					this.handleFileSelection(e.dataTransfer.files);
+				});
+			},
+
+			setupKeyboardShortcuts() {
+				document.addEventListener('keydown', (e) => {
+					// Ctrl/Cmd + Enter to send
+					if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+						e.preventDefault();
+						this.submitMessage();
+					}
+
+					// Escape to clear input
+					if (e.key === 'Escape' && this.textarea === document.activeElement) {
+						this.textarea.value = '';
+						this.autoResize();
+						this.updateCharacterCount();
+					}
+				});
+			},
+
+			setupEmojiPicker() {
+				// Close emoji picker when clicking outside
+				document.addEventListener('click', (e) => {
+					const emojiPicker = document.getElementById('emoji-picker');
+					const emojiButton = document.querySelector('[data-testid="emoji-button"]');
+
+					if (emojiPicker && !emojiPicker.contains(e.target) && e.target !== emojiButton) {
+						emojiPicker.classList.add('hidden');
+					}
+				});
+			},
+
+			autoResize() {
+				if (!this.textarea) return;
+
+				this.textarea.style.height = 'auto';
+				const scrollHeight = this.textarea.scrollHeight;
+				const maxHeight = 120; // max-height from CSS
+
+				this.textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+			},
+
+			updateCharacterCount() {
+				const count = this.textarea.value.length;
+				const maxLength = { models.MaxMessageLength };
+				const countElement = document.querySelector('.message-input-status div:last-child');
+
+				if (countElement) {
+					countElement.textContent = `${count}/${maxLength}`;
+
+					// Update color based on usage
+					countElement.className = '';
+					if (count >= maxLength) {
+						countElement.classList.add('text-red-500');
+					} else if (count > maxLength * 0.8) {
+						countElement.classList.add('text-yellow-600');
+					} else {
+						countElement.classList.add('text-gray-500');
+					}
+				}
+
+				// Update send button state
+				this.updateSendButton();
+			},
+
+			updateSendButton() {
+				const sendButton = document.getElementById('message-submit');
+				const canSend = this.canSendMessage();
+
+				if (sendButton) {
+					sendButton.disabled = !canSend;
+					sendButton.className = sendButton.className.replace(/text-(duck-blue-600|gray-300)/,
+						canSend ? 'text-duck-blue-600' : 'text-gray-300');
+				}
+			},
+
+			canSendMessage() {
+				const content = this.textarea.value.trim();
+				return this.isConnected &&
+					   content.length > 0 &&
+					   content.length <= { models.MaxMessageLength } &&
+					   !this.isSubmitting;
+			},
+
+			handleTyping() {
+				if (!this.isConnected) return;
+
+				const now = Date.now();
+				const hasContent = this.textarea.value.trim().length > 0;
+
+				if (hasContent && (!this.isTyping || now - this.lastTypingTime > this.typingThrottleMs)) {
+					this.startTyping();
+				} else if (!hasContent && this.isTyping) {
+					this.stopTyping();
+				}
+			},
+
+			startTyping() {
+				if (this.isTyping) return;
+
+				this.isTyping = true;
+				this.lastTypingTime = Date.now();
+
+				// Send typing indicator
+				fetch(`/rooms/${this.roomId}/typing`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-Token': '{ data.CSRFToken }'
+					},
+					body: JSON.stringify({ typing: true })
+				}).catch(console.error);
+
+				// Auto-stop typing after timeout
+				clearTimeout(this.typingTimer);
+				this.typingTimer = setTimeout(() => {
+					this.stopTyping();
+				}, { models.TypingTimeoutSeconds * 1000 });
+			},
+
+			stopTyping() {
+				if (!this.isTyping) return;
+
+				this.isTyping = false;
+				clearTimeout(this.typingTimer);
+
+				// Send stop typing indicator
+				fetch(`/rooms/${this.roomId}/typing`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-Token': '{ data.CSRFToken }'
+					},
+					body: JSON.stringify({ typing: false })
+				}).catch(console.error);
+			},
+
+			submitMessage() {
+				if (!this.canSendMessage()) return;
+
+				// Trigger HTMX form submission
+				if (this.form) {
+					htmx.trigger(this.form, 'submit');
+				}
+			},
+
+			setSubmitting(submitting) {
+				this.isSubmitting = submitting;
+
+				const sendButton = document.getElementById('message-submit');
+				const textarea = this.textarea;
+
+				if (sendButton) {
+					sendButton.disabled = submitting;
+				}
+
+				if (textarea) {
+					textarea.disabled = submitting;
+				}
+			},
+
+			clearInput() {
+				if (this.textarea) {
+					this.textarea.value = '';
+					this.autoResize();
+					this.updateCharacterCount();
+					this.textarea.focus();
+				}
+			},
+
+			handleFileSelection(files) {
+				if (!files || files.length === 0) return;
+
+				const maxSize = { data.MaxFileSize };
+				const allowedTypes = { fmt.Sprintf("%q", data.AllowedFileTypes) };
+
+				for (let file of files) {
+					if (file.size > maxSize) {
+						alert(`File "${file.name}" is too large. Maximum size is ${maxSize/(1024*1024)}MB.`);
+						continue;
+					}
+
+					// Check file type
+					const fileType = file.type || file.name.split('.').pop().toLowerCase();
+					if (!allowedTypes.includes(fileType)) {
+						alert(`File type "${fileType}" is not allowed.`);
+						continue;
+					}
+
+					// TODO: Upload file
+					console.log('File selected:', file.name, file.size, file.type);
+				}
+			}
+		};
+
+		// Global functions for template usage
+		function toggleEmojiPicker() {
+			const picker = document.getElementById('emoji-picker');
+			if (picker) {
+				picker.classList.toggle('hidden');
+			}
+		}
+
+		function insertEmoji(emoji) {
+			const textarea = document.getElementById('message-content');
+			if (textarea) {
+				const start = textarea.selectionStart;
+				const end = textarea.selectionEnd;
+				const text = textarea.value;
+
+				textarea.value = text.substring(0, start) + emoji + text.substring(end);
+				textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+
+				MessageInput.autoResize();
+				MessageInput.updateCharacterCount();
+				textarea.focus();
+			}
+
+			// Hide emoji picker
+			const picker = document.getElementById('emoji-picker');
+			if (picker) {
+				picker.classList.add('hidden');
+			}
+		}
+
+		// Initialize message input on page load
+		document.addEventListener('DOMContentLoaded', () => {
+			MessageInput.init();
+		});
+
+		// Handle connection status changes
+		document.addEventListener('htmx:sseError', () => {
+			MessageInput.isConnected = false;
+			MessageInput.stopTyping();
+			MessageInput.updateSendButton();
+		});
+
+		document.addEventListener('htmx:sseOpen', () => {
+			MessageInput.isConnected = true;
+			MessageInput.updateSendButton();
+		});
+	</script>
+}
+
+// Helper functions
+
+func getInputPlaceholder(isConnected bool, rateLimitRemaining int) string {
+	if !isConnected {
+		return "Disconnected - reconnecting..."
+	}
+	if rateLimitRemaining <= 0 {
+		return "Rate limit reached - wait a moment..."
+	}
+	return "Type a message..."
+}
+
+func getAcceptedFileTypes(allowedTypes []string) string {
+	if len(allowedTypes) == 0 {
+		return "image/*,text/*,.pdf,.doc,.docx"
+	}
+
+	result := ""
+	for i, fileType := range allowedTypes {
+		if i > 0 {
+			result += ","
+		}
+		result += fileType
+	}
+	return result
+}
+
+func getCommonEmojis() []string {
+	return []string{
+		"😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊",
+		"😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘",
+		"😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪",
+		"🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒",
+		"👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙",
+		"❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+		"💯", "💥", "💫", "⭐", "🌟", "✨", "⚡", "🔥",
+	}
+}

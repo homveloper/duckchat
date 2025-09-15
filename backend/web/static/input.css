@@ -1,0 +1,520 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS for DuckChat UI Components */
+
+@layer base {
+  /* Mobile-first responsive design */
+  html {
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #111827;
+    background-color: #f9fafb;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+
+  /* Form elements mobile optimization */
+  input, textarea, button, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    font-family: inherit;
+  }
+
+  /* Prevent horizontal scroll on mobile */
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* Improve touch scrolling on iOS */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@layer components {
+  /* Responsive Navigation Components */
+
+  /* Default mobile-first navigation styles */
+  .nav-container {
+    @apply fixed bottom-0 left-0 right-0 z-50;
+    @apply flex flex-row justify-center items-center;
+    @apply bg-white border-t border-gray-200;
+    @apply safe-area-padding;
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .nav-item {
+    @apply flex items-center justify-center cursor-pointer;
+    @apply text-gray-600 hover:text-duck-blue-600 hover:bg-gray-50;
+    @apply focus:outline-none focus:ring-2 focus:ring-duck-blue-500 focus:ring-offset-2;
+    @apply transition-colors duration-200;
+    @apply flex-1 flex-col py-2 px-1 min-h-touch;
+  }
+
+  .nav-item-active {
+    @apply text-duck-blue-600 bg-duck-blue-50;
+  }
+
+  .nav-item-inactive {
+    @apply text-gray-600 hover:text-duck-blue-600 hover:bg-gray-50;
+  }
+
+  .nav-icon-container {
+    @apply relative mb-1;
+  }
+
+  .nav-icon {
+    @apply w-6 h-6;
+  }
+
+  .nav-label {
+    @apply text-xs font-medium leading-none;
+  }
+
+  .nav-badge {
+    @apply absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full;
+    @apply min-w-5 h-5 flex items-center justify-center px-1;
+  }
+
+  /* Login Form Components */
+  .login-form {
+    @apply w-full max-w-sm mx-auto p-6 bg-white rounded-xl shadow-lg;
+  }
+
+  .login-input {
+    @apply form-input w-full px-4 py-3 border border-gray-300 rounded-lg
+           focus:ring-2 focus:ring-duck-blue-500 focus:border-transparent
+           text-base bg-white text-gray-900 transition-colors duration-200;
+  }
+
+  .login-input:invalid {
+    @apply border-red-300 focus:ring-red-500;
+  }
+
+  .login-button {
+    @apply btn-touch w-full bg-duck-blue-600 text-white hover:bg-duck-blue-700
+           focus:outline-none focus:ring-2 focus:ring-duck-blue-500 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .error-message {
+    @apply text-sm text-red-600 mt-1 animate-fade-in;
+  }
+
+  /* Room List Components */
+  .room-list {
+    @apply space-y-2 p-4;
+  }
+
+  .room-item {
+    @apply flex items-center justify-between p-4 bg-white rounded-lg shadow-sm
+           border border-gray-200 hover:shadow-md transition-shadow duration-200
+           cursor-pointer active:bg-gray-50;
+  }
+
+  .room-item--unread {
+    @apply border-duck-blue-300 bg-duck-blue-50;
+  }
+
+  .create-room-button {
+    @apply btn-touch bg-duck-blue-600 text-white hover:bg-duck-blue-700
+           focus:outline-none focus:ring-2 focus:ring-duck-blue-500 focus:ring-offset-2
+           fixed bottom-6 right-6 rounded-full shadow-lg z-10
+           md:relative md:bottom-auto md:right-auto md:w-full md:rounded-lg;
+  }
+
+  /* Chat Interface Components */
+  .chat-container {
+    @apply flex flex-col h-screen max-h-screen bg-gray-50;
+  }
+
+  .chat-header {
+    @apply flex items-center justify-between p-4 bg-white border-b border-gray-200
+           safe-area-padding sticky top-0 z-20;
+  }
+
+  .chat-messages {
+    @apply flex-1 overflow-y-auto p-4 space-y-3 scrollable;
+  }
+
+  .message-container {
+    @apply flex animate-slide-up;
+  }
+
+  .message-container--own {
+    @apply justify-end;
+  }
+
+  .message-container--other {
+    @apply justify-start;
+  }
+
+  .message-bubble--own {
+    @apply message-bubble bg-message-own text-gray-900 rounded-br-md;
+  }
+
+  .message-bubble--other {
+    @apply message-bubble bg-message-other text-gray-900 rounded-bl-md border border-gray-200;
+  }
+
+  .message-bubble--system {
+    @apply message-bubble bg-message-system text-gray-600 text-sm text-center
+           mx-auto max-w-xs;
+  }
+
+  .message-meta {
+    @apply text-xs text-gray-500 mt-1;
+  }
+
+  .message-username {
+    @apply text-xs text-gray-600 font-medium mb-1;
+  }
+
+  /* Message Input Components */
+  .message-input-container {
+    @apply flex items-end gap-2 p-4 bg-white border-t border-gray-200 safe-area-padding;
+  }
+
+  .message-input {
+    @apply flex-1 resize-none max-h-32 px-4 py-3 border border-gray-300 rounded-full
+           focus:ring-2 focus:ring-duck-blue-500 focus:border-transparent
+           text-base bg-white text-gray-900 transition-all duration-200;
+  }
+
+  .message-send-button {
+    @apply btn-touch bg-duck-blue-600 text-white hover:bg-duck-blue-700
+           focus:outline-none focus:ring-2 focus:ring-duck-blue-500 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed
+           rounded-full w-12 h-12 min-w-0 p-0;
+  }
+
+  .character-counter {
+    @apply text-xs text-gray-500 absolute bottom-1 right-3;
+  }
+
+  .character-counter--warning {
+    @apply text-amber-600;
+  }
+
+  .character-counter--error {
+    @apply text-red-600;
+  }
+
+  /* Online Users Components */
+  .online-users {
+    @apply hidden md:flex md:flex-col md:w-64 md:bg-white md:border-l md:border-gray-200;
+  }
+
+  .online-users-header {
+    @apply p-4 border-b border-gray-200 font-medium text-gray-900;
+  }
+
+  .online-users-list {
+    @apply p-2 space-y-1 overflow-y-auto scrollable;
+  }
+
+  .online-user-item {
+    @apply flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50;
+  }
+
+  .online-indicator {
+    @apply w-2 h-2 bg-status-online rounded-full;
+  }
+
+  .offline-indicator {
+    @apply w-2 h-2 bg-status-offline rounded-full;
+  }
+
+  .typing-indicator {
+    @apply w-2 h-2 bg-status-typing rounded-full animate-pulse-slow;
+  }
+
+  /* Responsive Layout Components */
+  .mobile-layout {
+    @apply flex flex-col;
+  }
+
+  .tablet-layout {
+    @apply md:flex md:flex-row;
+  }
+
+  /* Loading States */
+  .loading-spinner {
+    @apply inline-block w-5 h-5 border-2 border-current border-t-transparent
+           rounded-full animate-spin;
+  }
+
+  .loading-skeleton {
+    @apply bg-gray-200 animate-pulse rounded;
+  }
+
+  /* Toast Notifications */
+  .toast {
+    @apply fixed top-4 left-1/2 transform -translate-x-1/2 z-50
+           bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg
+           animate-fade-in;
+  }
+
+  .toast--success {
+    @apply bg-green-600;
+  }
+
+  .toast--error {
+    @apply bg-red-600;
+  }
+
+  .toast--warning {
+    @apply bg-amber-600;
+  }
+}
+
+@layer utilities {
+  /* Accessibility utilities */
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+  }
+
+  /* Focus utilities for keyboard navigation */
+  .focus-visible {
+    @apply focus:outline-none focus:ring-2 focus:ring-duck-blue-500 focus:ring-offset-2;
+  }
+
+  /* Touch-friendly utilities */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Prevent text selection for UI elements */
+  .select-none {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Gradient utilities for modern UI */
+  .gradient-primary {
+    background: linear-gradient(135deg, theme('colors.duck-blue.600'), theme('colors.duck-blue.700'));
+  }
+
+  /* Custom scrollbar for webkit browsers */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: theme('colors.gray.100');
+    border-radius: theme('borderRadius.full');
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: theme('colors.gray.300');
+    border-radius: theme('borderRadius.full');
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.gray.400');
+  }
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 767px) {
+  /* Optimize touch targets */
+  button, input[type="button"], input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Improve form usability */
+  input, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Optimize spacing for small screens */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Hide desktop-only elements */
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* Tablet and desktop optimizations */
+@media (min-width: 768px) {
+  /* Optimize for larger screens */
+  .mobile-only {
+    display: none !important;
+  }
+
+  /* Better hover states for mouse users */
+  button:hover, .hover\:shadow-md:hover {
+    transition: all 0.2s ease-in-out;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .login-input, .message-input {
+    border-width: 2px;
+  }
+
+  .message-bubble--other {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Force light theme always */
+body {
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+}
+
+.login-form, .room-item, .chat-header, .message-input-container {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+.message-bubble--other {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Ensure all input fields have proper text color */
+input, textarea, select {
+  color: #111827 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Responsive Navigation Media Queries */
+@media (max-width: 767px) {
+  /* Mobile layout - bottom navigation bar */
+  .nav-container {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    flex-direction: row !important;
+    height: auto !important;
+    width: 100% !important;
+    border-top: 1px solid #e5e7eb !important;
+    border-right: none !important;
+    border-left: none !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: 0.75rem;
+  }
+
+  .nav-item {
+    flex: 1 !important;
+    flex-direction: column !important;
+    padding: 0.5rem 0.25rem !important;
+    font-size: 0.75rem !important;
+    justify-content: center !important;
+    width: auto !important;
+    margin: 0 !important;
+  }
+
+  .nav-icon {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    margin-bottom: 0.25rem !important;
+    margin-right: 0 !important;
+  }
+
+  .nav-label {
+    font-size: 0.75rem !important;
+    line-height: 1 !important;
+    font-weight: 500 !important;
+  }
+
+  .nav-icon-container {
+    margin-bottom: 0.25rem !important;
+    margin-right: 0 !important;
+  }
+
+  /* Adjust main content for bottom navigation */
+  main {
+    padding-bottom: 5rem !important;
+    margin-left: 0 !important;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Desktop layout - left sidebar navigation */
+  .nav-container {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: auto !important;
+    flex-direction: column !important;
+    width: 16rem !important;
+    height: 100vh !important;
+    border-right: 1px solid #e5e7eb !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+  }
+
+  .nav-item {
+    flex-direction: row !important;
+    width: calc(100% - 1rem) !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 1rem !important;
+    justify-content: flex-start !important;
+    margin: 0.125rem 0.5rem !important;
+    border-radius: 0.5rem;
+    flex: none !important;
+  }
+
+  .nav-icon {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    margin-right: 0.75rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .nav-label {
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    line-height: normal !important;
+  }
+
+  .nav-icon-container {
+    margin-bottom: 0 !important;
+    margin-right: 0.75rem !important;
+  }
+
+  /* Adjust main content for left sidebar */
+  main {
+    margin-left: 16rem !important;
+    padding-bottom: 0 !important;
+  }
+}

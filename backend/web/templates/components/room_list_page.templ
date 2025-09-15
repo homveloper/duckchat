@@ -1,0 +1,16 @@
+package components
+
+import (
+	"duckchat/web/templates/layouts"
+)
+
+// RoomListPage renders a complete room list page
+templ RoomListPage(data *RoomListData, navData *NavigationData, layoutData *layouts.BaseLayoutData) {
+	@layouts.BaseLayout(layoutData, RoomListPageContent(data, navData))
+}
+
+// RoomListPageContent renders the room list page content only
+templ RoomListPageContent(data *RoomListData, navData *NavigationData) {
+	<!-- Room list content -->
+	@RoomList(data)
+}

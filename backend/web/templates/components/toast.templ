@@ -1,0 +1,310 @@
+package components
+
+import "fmt"
+
+// ToastType represents different types of toast notifications
+type ToastType string
+
+const (
+	ToastTypeSuccess ToastType = "success"
+	ToastTypeError   ToastType = "error"
+	ToastTypeInfo    ToastType = "info"
+	ToastTypeWarning ToastType = "warning"
+)
+
+// ToastData contains data for toast notifications
+type ToastData struct {
+	ID       string
+	Type     ToastType
+	Title    string
+	Message  string
+	Duration int // in milliseconds, 0 for persistent
+}
+
+// Toast renders a single toast notification
+templ Toast(data *ToastData) {
+	<div
+		id={ "toast-" + data.ID }
+		class={
+			"toast fixed top-4 right-4 max-w-sm w-full bg-white rounded-lg shadow-lg border-l-4 overflow-hidden z-50 transform translate-x-full transition-transform duration-300 ease-in-out",
+			templ.KV("border-green-400", data.Type == ToastTypeSuccess),
+			templ.KV("border-red-400", data.Type == ToastTypeError),
+			templ.KV("border-blue-400", data.Type == ToastTypeInfo),
+			templ.KV("border-yellow-400", data.Type == ToastTypeWarning)
+		}
+		role="alert"
+		aria-live="polite"
+		data-toast-id={ data.ID }
+		data-toast-duration={ fmt.Sprintf("%d", data.Duration) }
+		data-testid="toast-notification"
+	>
+		<div class="p-4">
+			<div class="flex items-start">
+				<div class="flex-shrink-0">
+					if data.Type == ToastTypeSuccess {
+						<svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+							<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+						</svg>
+					} else if data.Type == ToastTypeError {
+						<svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+							<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L10 11.414l2.707-2.707a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+						</svg>
+					} else if data.Type == ToastTypeWarning {
+						<svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+							<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+						</svg>
+					} else {
+						<svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+							<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+						</svg>
+					}
+				</div>
+				<div class="ml-3 w-0 flex-1">
+					if data.Title != "" {
+						<p class={
+							"text-sm font-medium",
+							templ.KV("text-green-800", data.Type == ToastTypeSuccess),
+							templ.KV("text-red-800", data.Type == ToastTypeError),
+							templ.KV("text-blue-800", data.Type == ToastTypeInfo),
+							templ.KV("text-yellow-800", data.Type == ToastTypeWarning)
+						}>
+							{ data.Title }
+						</p>
+					}
+					if data.Message != "" {
+						<p class={
+							"mt-1 text-sm",
+							templ.KV("text-green-700", data.Type == ToastTypeSuccess),
+							templ.KV("text-red-700", data.Type == ToastTypeError),
+							templ.KV("text-blue-700", data.Type == ToastTypeInfo),
+							templ.KV("text-yellow-700", data.Type == ToastTypeWarning)
+						}>
+							{ data.Message }
+						</p>
+					}
+				</div>
+				<div class="ml-4 flex-shrink-0">
+					<button
+						type="button"
+						class={
+							"toast-dismiss rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2",
+							templ.KV("text-green-400 hover:text-green-600 focus:ring-green-500", data.Type == ToastTypeSuccess),
+							templ.KV("text-red-400 hover:text-red-600 focus:ring-red-500", data.Type == ToastTypeError),
+							templ.KV("text-blue-400 hover:text-blue-600 focus:ring-blue-500", data.Type == ToastTypeInfo),
+							templ.KV("text-yellow-400 hover:text-yellow-600 focus:ring-yellow-500", data.Type == ToastTypeWarning)
+						}
+						data-toast-id={ data.ID }
+						aria-label="Close notification"
+					>
+						<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+							<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+						</svg>
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Progress bar for timed toasts -->
+		if data.Duration > 0 {
+			<div class="w-full bg-gray-200 h-1">
+				<div
+					class={
+						"h-full transition-all ease-linear toast-progress",
+						templ.KV("bg-green-400", data.Type == ToastTypeSuccess),
+						templ.KV("bg-red-400", data.Type == ToastTypeError),
+						templ.KV("bg-blue-400", data.Type == ToastTypeInfo),
+						templ.KV("bg-yellow-400", data.Type == ToastTypeWarning)
+					}
+					style={ "width: 100%; animation: toast-progress " + string(rune(data.Duration)) + "ms linear;" }
+				></div>
+			</div>
+		}
+	</div>
+}
+
+// ToastContainer renders the container for all toasts
+templ ToastContainer() {
+	<div
+		id="toast-container"
+		class="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full"
+		data-testid="toast-container"
+		aria-live="polite"
+		aria-label="Notifications"
+	>
+		<!-- Toasts will be dynamically added here -->
+	</div>
+
+	<style>
+		@keyframes toast-progress {
+			from { width: 100%; }
+			to { width: 0%; }
+		}
+
+		.toast.show {
+			transform: translateX(0);
+		}
+
+		.toast.hide {
+			transform: translateX(100%);
+		}
+
+		/* Mobile responsive adjustments */
+		@media (max-width: 640px) {
+			#toast-container {
+				top: 1rem;
+				right: 1rem;
+				left: 1rem;
+				max-width: none;
+			}
+		}
+	</style>
+
+	<script>
+		// Toast management system
+		window.toastQueue = window.toastQueue || [];
+		window.activeToasts = window.activeToasts || new Map();
+
+		// Initialize toast event listeners
+		document.addEventListener('DOMContentLoaded', function() {
+			// Event delegation for toast dismiss buttons
+			document.addEventListener('click', function(e) {
+				if (e.target.closest('.toast-dismiss')) {
+					const toastId = e.target.closest('.toast-dismiss').dataset.toastId;
+					if (toastId) {
+						dismissToast(toastId);
+					}
+				}
+			});
+		});
+
+		// Show a toast notification
+		function showToast(type, title, message, duration = 5000) {
+			const toastId = 'toast_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+			// Create toast HTML
+			const toastHTML = createToastHTML(toastId, type, title, message, duration);
+
+			// Add to container
+			const container = document.getElementById('toast-container');
+			if (container) {
+				container.insertAdjacentHTML('afterbegin', toastHTML);
+
+				// Show animation
+				const toastElement = document.getElementById('toast-' + toastId);
+				if (toastElement) {
+					// Add to active toasts
+					window.activeToasts.set(toastId, {
+						element: toastElement,
+						type: type,
+						timeout: null
+					});
+
+					// Trigger show animation after a brief delay
+					setTimeout(() => {
+						toastElement.classList.add('show');
+					}, 10);
+
+					// Auto-dismiss if duration is set
+					if (duration > 0) {
+						const timeout = setTimeout(() => {
+							dismissToast(toastId);
+						}, duration);
+
+						window.activeToasts.get(toastId).timeout = timeout;
+					}
+				}
+			}
+
+			return toastId;
+		}
+
+		// Dismiss a toast
+		function dismissToast(toastId) {
+			const toastData = window.activeToasts.get(toastId);
+			if (!toastData) return;
+
+			const element = toastData.element;
+
+			// Clear timeout if exists
+			if (toastData.timeout) {
+				clearTimeout(toastData.timeout);
+			}
+
+			// Hide animation
+			element.classList.add('hide');
+			element.classList.remove('show');
+
+			// Remove from DOM after animation
+			setTimeout(() => {
+				if (element.parentNode) {
+					element.parentNode.removeChild(element);
+				}
+				window.activeToasts.delete(toastId);
+			}, 300);
+		}
+
+		// Create toast HTML (used internally)
+		function createToastHTML(id, type, title, message, duration) {
+			const icons = {
+				success: '<svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>',
+				error: '<svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L10 11.414l2.707-2.707a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>',
+				warning: '<svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>',
+				info: '<svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>'
+			};
+
+			const colorClasses = {
+				success: { border: 'border-green-400', text: 'text-green-800', textLight: 'text-green-700', button: 'text-green-400 hover:text-green-600 focus:ring-green-500', progress: 'bg-green-400' },
+				error: { border: 'border-red-400', text: 'text-red-800', textLight: 'text-red-700', button: 'text-red-400 hover:text-red-600 focus:ring-red-500', progress: 'bg-red-400' },
+				warning: { border: 'border-yellow-400', text: 'text-yellow-800', textLight: 'text-yellow-700', button: 'text-yellow-400 hover:text-yellow-600 focus:ring-yellow-500', progress: 'bg-yellow-400' },
+				info: { border: 'border-blue-400', text: 'text-blue-800', textLight: 'text-blue-700', button: 'text-blue-400 hover:text-blue-600 focus:ring-blue-500', progress: 'bg-blue-400' }
+			};
+
+			const colors = colorClasses[type] || colorClasses.info;
+
+			return '<div id="toast-' + id + '" class="toast fixed top-4 right-4 max-w-sm w-full bg-white rounded-lg shadow-lg border-l-4 ' + colors.border + ' overflow-hidden z-50 transform translate-x-full transition-transform duration-300 ease-in-out" role="alert" aria-live="polite" data-toast-id="' + id + '" data-testid="toast-notification">' +
+				'<div class="p-4">' +
+					'<div class="flex items-start">' +
+						'<div class="flex-shrink-0">' +
+							(icons[type] || icons.info) +
+						'</div>' +
+						'<div class="ml-3 w-0 flex-1">' +
+							(title ? '<p class="text-sm font-medium ' + colors.text + '">' + title + '</p>' : '') +
+							(message ? '<p class="mt-1 text-sm ' + colors.textLight + '">' + message + '</p>' : '') +
+						'</div>' +
+						'<div class="ml-4 flex-shrink-0">' +
+							'<button type="button" class="toast-dismiss rounded-md inline-flex focus:outline-none focus:ring-2 focus:ring-offset-2 ' + colors.button + '" data-toast-id="' + id + '" aria-label="Close notification">' +
+								'<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>' +
+							'</button>' +
+						'</div>' +
+					'</div>' +
+				'</div>' +
+				(duration > 0 ? '<div class="w-full bg-gray-200 h-1"><div class="h-full transition-all ease-linear toast-progress ' + colors.progress + '" style="width: 100%; animation: toast-progress ' + duration + 'ms linear;"></div></div>' : '') +
+			'</div>';
+		}
+
+		// Convenience functions
+		function showSuccessToast(title, message, duration = 5000) {
+			return showToast('success', title, message, duration);
+		}
+
+		function showErrorToast(title, message, duration = 8000) {
+			return showToast('error', title, message, duration);
+		}
+
+		function showInfoToast(title, message, duration = 5000) {
+			return showToast('info', title, message, duration);
+		}
+
+		function showWarningToast(title, message, duration = 6000) {
+			return showToast('warning', title, message, duration);
+		}
+
+		// Make functions available globally
+		window.showToast = showToast;
+		window.showSuccessToast = showSuccessToast;
+		window.showErrorToast = showErrorToast;
+		window.showInfoToast = showInfoToast;
+		window.showWarningToast = showWarningToast;
+		window.dismissToast = dismissToast;
+	</script>
+}

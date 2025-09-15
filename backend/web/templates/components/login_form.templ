@@ -1,0 +1,415 @@
+package components
+
+import (
+	"duckchat/internal/ui/models"
+	"duckchat/web/templates/layouts"
+)
+
+// LoginFormData contains data for the login form component
+type LoginFormData struct {
+	FormState   *models.LoginFormState
+	RedirectURL string
+	IsLoading   bool
+}
+
+// NewLoginFormData creates a new LoginFormData with defaults
+func NewLoginFormData(formState *models.LoginFormState) *LoginFormData {
+	return &LoginFormData{
+		FormState:   formState,
+		RedirectURL: "/rooms",
+		IsLoading:   false,
+	}
+}
+
+// LoginForm renders the login form component
+templ LoginForm(data *LoginFormData) {
+	<div class="login-form w-full max-w-sm mx-auto p-6 bg-white rounded-xl shadow-lg" data-testid="login-form">
+		<!-- Form header -->
+		<div class="text-center mb-6">
+			<h1 class="text-2xl font-bold text-gray-900 mb-2">Welcome to DuckChat</h1>
+			<p class="text-gray-600 text-sm">Enter your nickname to join as a guest</p>
+		</div>
+
+		<!-- General error message -->
+		if data.FormState.GeneralError != "" {
+			<div
+				class="error-message bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4"
+				role="alert"
+				data-testid="general-error"
+			>
+				<div class="flex items-center">
+					<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+					</svg>
+					<span>{ data.FormState.GeneralError }</span>
+				</div>
+			</div>
+		}
+
+		<!-- Login form -->
+		<form
+			class="space-y-4"
+			data-testid="login-form-element"
+			id="guest-login-form"
+		>
+			<!-- CSRF Token -->
+			<input type="hidden" name="csrf_token" value={ data.FormState.CSRFToken }/>
+
+			<!-- Redirect URL -->
+			if data.RedirectURL != "" {
+				<input type="hidden" name="redirect_url" value={ data.RedirectURL }/>
+			}
+
+			<!-- Username field -->
+			<div class="space-y-2">
+				<label
+					for="username"
+					class="block text-sm font-medium text-gray-700"
+				>
+					Nickname
+				</label>
+				<input
+					type="text"
+					id="username"
+					name="username"
+					value={ data.FormState.Username }
+					class={
+						func() string {
+							base := "login-input w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-duck-blue-500 focus:border-transparent text-base bg-white transition-colors duration-200"
+							if data.FormState.HasFieldError("username") {
+								return base + " border-red-300 focus:ring-red-500"
+							}
+							return base + " border-gray-300"
+						}()
+					}
+					placeholder="Enter your nickname"
+					required
+					minlength="1"
+					maxlength="50"
+					pattern="[a-zA-Z0-9가-힣_\\s-]+"
+					autocomplete="username"
+					autocapitalize="words"
+					spellcheck="false"
+					disabled?={ data.FormState.IsSubmitting }
+					data-testid="username-input"
+					if data.FormState.HasFieldError("username") {
+						aria-describedby="username-error"
+					}
+				/>
+
+				if data.FormState.HasFieldError("username") {
+					<p
+						id="username-error"
+						class="error-message text-sm text-red-600"
+						role="alert"
+						data-testid="username-error"
+					>
+						{ data.FormState.GetFieldError("username") }
+					</p>
+				}
+
+				<!-- Username format help -->
+				<p class="text-xs text-gray-500">
+					1-50 characters, Korean, English, numbers, spaces and dashes allowed
+				</p>
+			</div>
+
+
+			<!-- Submit button -->
+			<button
+				type="button"
+				id="guest-login-button"
+				class="login-button w-full bg-duck-blue-600 text-white py-3 px-4 rounded-lg hover:bg-duck-blue-700 focus:outline-none focus:ring-2 focus:ring-duck-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+				disabled?={ data.FormState.IsSubmitting || data.IsLoading }
+				data-testid="login-submit"
+			>
+				if data.FormState.IsSubmitting || data.IsLoading {
+					<span class="flex items-center justify-center">
+						<svg id="login-spinner" class="loading-spinner w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+							<path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+						</svg>
+						Signing in...
+					</span>
+				} else {
+					Join as Guest
+				}
+			</button>
+		</form>
+
+		<!-- Guest info -->
+		<div class="mt-6 text-center">
+			<div class="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+				<p class="font-medium mb-1">🔓 Guest Access</p>
+				<p>No registration needed. Just enter a nickname and start chatting!</p>
+			</div>
+		</div>
+
+		<!-- Help text for mobile users -->
+		<div class="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800 md:hidden">
+			<p class="font-medium mb-1">💡 Tip for mobile users:</p>
+			<p>For the best experience, add DuckChat to your home screen!</p>
+		</div>
+	</div>
+
+	<!-- Toast notification container -->
+	@ToastContainer()
+
+	<!-- JavaScript for guest login -->
+	<script>
+		// Guest login handler using JSON-RPC 2.0
+		async function handleGuestLogin(event) {
+			console.log('handleGuestLogin called');
+			event.preventDefault();
+
+			const form = document.getElementById('guest-login-form');
+			const usernameInput = document.getElementById('username');
+			const submitButton = document.getElementById('guest-login-button');
+			const username = usernameInput.value.trim();
+
+			// Validate username
+			if (!username || username.length < 1 || username.length > 50) {
+				showErrorToast('Invalid Username', 'Please enter a valid username (1-50 characters)');
+				showError('Please enter a valid username (1-50 characters)');
+				return false;
+			}
+
+			// Disable submit button
+			submitButton.disabled = true;
+
+			try {
+				console.log('Making API call to /api/auth...');
+
+				// Make JSON-RPC 2.0 API call
+				const response = await fetch('/api/auth', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'auth.login.guest',
+						params: {
+							username: username
+						},
+						id: Date.now()
+					})
+				});
+
+				console.log('Response status:', response.status);
+				console.log('Response headers:', response.headers);
+				console.log('Response ok:', response.ok);
+
+				if (!response.ok) {
+					console.error('HTTP error! status:', response.status);
+					const text = await response.text();
+					console.error('Error response body:', text);
+					const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+					showErrorToast('Connection Error', errorMsg);
+					showError(errorMsg);
+					submitButton.disabled = false;
+					return false;
+				}
+
+				const data = await response.json();
+				console.log('API Response:', data);
+
+				if (data.error) {
+					console.log('Login error:', data.error);
+					const errorMsg = data.error.message || 'Login failed';
+					showErrorToast('Login Failed', errorMsg);
+					showError(errorMsg);
+					submitButton.disabled = false;
+					return false;
+				}
+
+				if (data.result && data.result.access_token) {
+					// Primary: Store in sessionStorage for tab-specific authentication
+					sessionStorage.setItem('auth_token', data.result.access_token);
+					sessionStorage.setItem('user_id', data.result.user_id);
+					sessionStorage.setItem('username', data.result.username || 'Unknown');
+
+					// Generate unique tab ID for this session
+					const tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+					sessionStorage.setItem('tab_id', tabId);
+
+					// Secondary: Keep in localStorage for account history/autocomplete
+					const recentAccounts = JSON.parse(localStorage.getItem('recent_accounts') || '[]');
+					const accountInfo = {
+						user_id: data.result.user_id,
+						username: data.result.username || 'Unknown',
+						login_time: new Date().toISOString()
+					};
+
+					// Add to recent accounts (keep last 5)
+					const updatedAccounts = [accountInfo, ...recentAccounts.filter(acc => acc.user_id !== accountInfo.user_id)].slice(0, 5);
+					localStorage.setItem('recent_accounts', JSON.stringify(updatedAccounts));
+
+					// Set cookie for SSE with proper expiration
+					const expires = new Date();
+					expires.setTime(expires.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
+					document.cookie = `auth_token=${data.result.access_token}; path=/; samesite=strict; expires=${expires.toUTCString()}`;
+
+					console.log('Login successful for tab:', tabId);
+
+					console.log('Login successful! Token stored:', data.result.access_token.substring(0, 20) + '...');
+					console.log('User ID:', data.result.user_id);
+
+					// Show success toast
+					showSuccessToast('Login Successful!', `Welcome, ${data.result.username}! Redirecting to rooms...`, 3000);
+
+					// Success! Redirect to rooms with Authorization header
+					const redirectUrl = form.querySelector('[name="redirect_url"]')?.value || '/rooms';
+					console.log('Redirecting to:', redirectUrl);
+
+					// Use fetch with Authorization header instead of window.location
+					try {
+						const roomsResponse = await fetch(redirectUrl, {
+							headers: {
+								'Authorization': 'Bearer ' + data.result.access_token
+							}
+						});
+
+						if (roomsResponse.ok) {
+							const html = await roomsResponse.text();
+							document.open();
+							document.write(html);
+							document.close();
+							// Update URL in browser
+							window.history.pushState({}, '', redirectUrl);
+						} else {
+							console.error('Failed to load rooms page:', roomsResponse.status);
+							showErrorToast('Navigation Error', 'Failed to load rooms page');
+							showError('Failed to load rooms page');
+							submitButton.disabled = false;
+						}
+					} catch (error) {
+						console.error('Error loading rooms page:', error);
+						showErrorToast('Navigation Error', 'Error loading rooms page');
+						showError('Error loading rooms page');
+						submitButton.disabled = false;
+					}
+				} else {
+					console.log('Invalid server response:', data);
+					showErrorToast('Server Error', 'Invalid response from server');
+					showError('Invalid response from server');
+					submitButton.disabled = false;
+				}
+
+			} catch (error) {
+				console.error('Login error:', error);
+				showErrorToast('Network Error', 'Network error. Please try again.');
+				showError('Network error. Please try again.');
+				submitButton.disabled = false;
+			}
+
+			return false;
+		}
+
+		// Show error message
+		function showError(message) {
+			// Remove existing error
+			const existingError = document.querySelector('.login-error-message');
+			if (existingError) {
+				existingError.remove();
+			}
+
+			// Create new error element
+			const errorDiv = document.createElement('div');
+			errorDiv.className = 'login-error-message bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4';
+			errorDiv.setAttribute('role', 'alert');
+			errorDiv.innerHTML = `
+				<div class="flex items-center">
+					<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+					</svg>
+					<span>${message}</span>
+				</div>
+			`;
+
+			// Insert error before form
+			const form = document.querySelector('[data-testid="login-form-element"]');
+			form.parentNode.insertBefore(errorDiv, form);
+		}
+
+		// Form validation and UX enhancements
+		document.addEventListener('DOMContentLoaded', function() {
+			console.log('DOM loaded, setting up login form...');
+
+			const form = document.getElementById('guest-login-form');
+			const usernameInput = document.getElementById('username');
+
+			if (!form) {
+				console.error('Login form not found!');
+				return;
+			}
+
+			if (!usernameInput) {
+				console.error('Username input not found!');
+				return;
+			}
+
+			console.log('Form and input found, attaching event listeners...');
+
+			const submitButton = document.getElementById('guest-login-button');
+			if (!submitButton) {
+				console.error('Submit button not found!');
+				return;
+			}
+
+			// Attach click handler to button (not form submit)
+			submitButton.addEventListener('click', function(e) {
+				console.log('Button clicked');
+				e.preventDefault();
+				handleGuestLogin(e);
+			});
+
+			// Also prevent form submission as backup
+			form.addEventListener('submit', function(e) {
+				console.log('Form submit triggered - preventing default');
+				e.preventDefault();
+				return false;
+			});
+
+			// Real-time validation
+			function validateField(input, errorElementId) {
+				const errorElement = document.getElementById(errorElementId);
+
+				if (input.checkValidity()) {
+					input.classList.remove('border-red-300');
+					input.classList.add('border-green-300');
+					if (errorElement) {
+						errorElement.style.display = 'none';
+					}
+				} else {
+					input.classList.remove('border-green-300');
+					input.classList.add('border-red-300');
+				}
+			}
+
+			// Add real-time validation on blur
+			usernameInput.addEventListener('blur', function() {
+				validateField(this, 'username-error');
+			});
+
+			// Auto-focus username field
+			usernameInput.focus();
+
+			// Handle Enter key submission
+			usernameInput.addEventListener('keypress', function(e) {
+				if (e.key === 'Enter') {
+					console.log('Enter key pressed');
+					e.preventDefault();
+					handleGuestLogin(e);
+				}
+			});
+
+			console.log('Event listeners attached successfully');
+		});
+	</script>
+}
+
+// LoginPage renders a complete login page
+templ LoginPage(data *LoginFormData, layoutData *layouts.BaseLayoutData) {
+	@layouts.BaseLayout(layoutData, LoginForm(data))
+}
