@@ -11,7 +11,9 @@ import (
 
 	"duckchat/internal/auth"
 	"duckchat/internal/message"
+	"duckchat/internal/repository"
 	"duckchat/internal/room"
+	"duckchat/internal/services"
 	"duckchat/internal/sse"
 	"duckchat/internal/ui"
 	"duckchat/internal/user"
@@ -30,12 +32,21 @@ type DuckChatApp struct {
 	RoomRepo    room.Repository
 	MessageRepo message.Repository
 
+	// New repositories for service layer
+	ChatRoomRepo *repository.ChatRoomRepository
+
 	// Services
 	UserService    *user.Service
 	AuthService    *auth.Service
 	RoomService    *room.Service
 	MessageService *message.Service
 	SSEService     *sse.Service
+
+	// New service layer
+	NewRoomService        *services.RoomService
+	NewMessageService     *services.MessageService
+	ParticipantService    *services.ParticipantService
+	SessionService        *services.SessionService
 
 	// Handlers
 	UIHandler      *ui.Handler
@@ -69,6 +80,9 @@ func NewDuckChatApp(staticDir, port string) *DuckChatApp {
 	app.RoomRepo = room.NewRepository(app.RedisClient)
 	app.MessageRepo = message.NewRepository(app.RedisClient)
 
+	// Initialize new repositories for service layer
+	app.ChatRoomRepo = repository.NewChatRoomRepository(app.RedisClient)
+
 	// Initialize services
 	app.UserService = user.NewService(app.UserRepo)
 	app.AuthService = auth.NewService(app.AuthRepo, "duckchat-jwt-secret-key")
@@ -76,12 +90,18 @@ func NewDuckChatApp(staticDir, port string) *DuckChatApp {
 	app.MessageService = message.NewService(app.MessageRepo, app.RoomService)
 	app.SSEService = sse.NewService(app.AuthService)
 
+	// Initialize new service layer
+	app.NewRoomService = services.NewRoomService(app.ChatRoomRepo)
+	app.NewMessageService = services.NewMessageService(app.RedisClient)
+	app.ParticipantService = services.NewParticipantService(app.RedisClient)
+	app.SessionService = services.NewSessionService(app.RedisClient)
+
 	// Initialize handlers
 	app.UIHandler = ui.NewHandler(app.AuthService)
 	app.AuthHandler = auth.NewHandler(app.AuthService)
 	app.UserHandler = user.NewHandler(app.UserService)
-	app.RoomHandler = room.NewHandler(app.RoomService)
-	app.MessageHandler = message.NewHandler(app.MessageService)
+	app.RoomHandler = room.NewHandler(app.RoomService, app.NewRoomService, app.ParticipantService, app.SessionService)
+	app.MessageHandler = message.NewHandler(app.MessageService, app.NewMessageService, app.ParticipantService)
 
 	return app
 }
