@@ -1,0 +1,510 @@
+openapi: 3.0.3
+info:
+  title: DuckChat Templ Components Contract
+  description: Interface specifications for reusable Templ template components
+  version: 0.3.0
+
+# This contract defines the data structures and interfaces for Templ template components
+# It serves as a specification for component props, state management, and rendering contracts
+
+components:
+  schemas:
+    # Base Layout Component
+    BaseLayoutProps:
+      type: object
+      required:
+        - title
+        - currentUser
+      properties:
+        title:
+          type: string
+          description: Page title for SEO and browser tab
+          example: "DuckChat - Real-time Messaging"
+        currentUser:
+          $ref: '#/components/schemas/UserContext'
+        csrfToken:
+          type: string
+          description: CSRF protection token
+        bodyClass:
+          type: string
+          description: Additional CSS classes for body element
+          example: "chat-page mobile-layout"
+        headerContent:
+          type: string
+          description: Optional custom header content
+        footerContent:
+          type: string
+          description: Optional custom footer content
+
+    # User Context (from JWT)
+    UserContext:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user_123"
+        username:
+          type: string
+          example: "johndoe"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "/avatars/user_123.jpg"
+        isAuthenticated:
+          type: boolean
+          default: false
+
+    # Login Form Component
+    LoginFormProps:
+      type: object
+      required:
+        - csrfToken
+      properties:
+        csrfToken:
+          type: string
+          description: CSRF protection token
+        formState:
+          $ref: '#/components/schemas/LoginFormState'
+        redirectUrl:
+          type: string
+          description: URL to redirect after successful login
+          example: "/rooms"
+        errorMessage:
+          type: string
+          description: General login error message
+          nullable: true
+
+    LoginFormState:
+      type: object
+      properties:
+        username:
+          type: string
+          description: Current username input value
+        isSubmitting:
+          type: boolean
+          description: Form submission in progress
+          default: false
+        validationErrors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Field-specific validation errors
+          example:
+            username: "Username must be at least 3 characters"
+            password: "Password is required"
+
+    # Room List Component
+    RoomListProps:
+      type: object
+      required:
+        - rooms
+        - currentUser
+      properties:
+        rooms:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomViewModel'
+        currentUser:
+          $ref: '#/components/schemas/UserContext'
+        createRoomState:
+          $ref: '#/components/schemas/CreateRoomState'
+
+    RoomViewModel:
+      type: object
+      required:
+        - id
+        - name
+        - participantCount
+      properties:
+        id:
+          type: string
+          example: "room_abc123"
+        name:
+          type: string
+          example: "General Discussion"
+        description:
+          type: string
+          nullable: true
+          example: "Main chat room for general topics"
+        participantCount:
+          type: integer
+          minimum: 0
+          example: 12
+        lastActivity:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of last message
+        isPrivate:
+          type: boolean
+          default: false
+        hasUnreadMessages:
+          type: boolean
+          description: Whether current user has unread messages
+          default: false
+        lastMessage:
+          type: string
+          nullable: true
+          description: Preview of most recent message
+          example: "Hey everyone, how's it going?"
+
+    # Create Room Component
+    CreateRoomState:
+      type: object
+      properties:
+        roomName:
+          type: string
+          description: Room name being entered
+        description:
+          type: string
+          description: Room description being entered
+        isPrivate:
+          type: boolean
+          default: false
+        isCreating:
+          type: boolean
+          description: Room creation in progress
+          default: false
+        validationErrors:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            room_name: "Room name already exists"
+
+    # Chat Page Component
+    ChatPageProps:
+      type: object
+      required:
+        - currentRoom
+        - currentUser
+        - messages
+      properties:
+        currentRoom:
+          $ref: '#/components/schemas/ChatRoomContext'
+        currentUser:
+          $ref: '#/components/schemas/UserContext'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageViewModel'
+        onlineUsers:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserContext'
+        messageInputState:
+          $ref: '#/components/schemas/MessageInputState'
+        isConnected:
+          type: boolean
+          description: SSE connection status
+          default: true
+        unreadCount:
+          type: integer
+          minimum: 0
+          default: 0
+
+    ChatRoomContext:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          example: "room_abc123"
+        name:
+          type: string
+          example: "General Discussion"
+        description:
+          type: string
+          nullable: true
+        isPrivate:
+          type: boolean
+          default: false
+        participantCount:
+          type: integer
+          minimum: 0
+
+    # Message Components
+    MessageViewModel:
+      type: object
+      required:
+        - id
+        - content
+        - username
+        - timestamp
+      properties:
+        id:
+          type: string
+          example: "msg_xyz789"
+        content:
+          type: string
+          description: Message text content
+          example: "Hello everyone! 👋"
+        username:
+          type: string
+          example: "johndoe"
+        timestamp:
+          type: string
+          format: date-time
+          description: Message creation time
+        isCurrentUser:
+          type: boolean
+          description: Whether message was sent by current user
+          default: false
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "/avatars/user_123.jpg"
+        messageType:
+          type: string
+          enum: [text, system, notification]
+          default: text
+          description: Type of message for styling purposes
+
+    MessageListProps:
+      type: object
+      required:
+        - messages
+        - currentUserId
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageViewModel'
+        currentUserId:
+          type: string
+          description: ID of current user for message ownership
+        isLoading:
+          type: boolean
+          description: Loading more messages indicator
+          default: false
+        hasMoreMessages:
+          type: boolean
+          description: Whether more historical messages are available
+          default: false
+
+    # Message Input Component
+    MessageInputProps:
+      type: object
+      required:
+        - roomId
+        - csrfToken
+      properties:
+        roomId:
+          type: string
+          description: Target room for message
+        csrfToken:
+          type: string
+          description: CSRF protection token
+        inputState:
+          $ref: '#/components/schemas/MessageInputState'
+        maxLength:
+          type: integer
+          minimum: 1
+          default: 1000
+          description: Maximum message length
+
+    MessageInputState:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Current message content being typed
+        characterCount:
+          type: integer
+          minimum: 0
+          description: Current character count
+        isSending:
+          type: boolean
+          description: Message send operation in progress
+          default: false
+        validationError:
+          type: string
+          nullable: true
+          description: Input validation error message
+
+    # Online Users Component
+    OnlineUsersProps:
+      type: object
+      required:
+        - users
+        - roomId
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserContext'
+        roomId:
+          type: string
+          description: Room context for user list
+        currentUserId:
+          type: string
+          description: Current user ID for highlighting
+        maxDisplayCount:
+          type: integer
+          minimum: 1
+          default: 20
+          description: Maximum users to display before showing count
+
+    # Responsive Layout State
+    ResponsiveLayoutState:
+      type: object
+      properties:
+        viewportWidth:
+          type: integer
+          minimum: 0
+          description: Current viewport width in pixels
+        deviceType:
+          type: string
+          enum: [mobile, tablet]
+          default: mobile
+          description: Current responsive layout mode
+        orientation:
+          type: string
+          enum: [portrait, landscape]
+          default: portrait
+        isTouchDevice:
+          type: boolean
+          description: Whether device supports touch
+          default: false
+
+    # Error Handling
+    ComponentError:
+      type: object
+      properties:
+        component:
+          type: string
+          description: Component name where error occurred
+        error:
+          type: string
+          description: Error message
+        recoverable:
+          type: boolean
+          description: Whether error allows graceful degradation
+          default: true
+        retryAction:
+          type: string
+          nullable: true
+          description: Optional retry action for user
+
+# Template Component Rendering Contracts
+paths:
+  # These are not HTTP endpoints, but component interface specifications
+  /components/base-layout:
+    post:
+      summary: Render BaseLayout component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BaseLayoutProps'
+      responses:
+        '200':
+          description: Rendered HTML template
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /components/login-form:
+    post:
+      summary: Render LoginForm component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginFormProps'
+      responses:
+        '200':
+          description: Rendered login form HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /components/room-list:
+    post:
+      summary: Render RoomList component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomListProps'
+      responses:
+        '200':
+          description: Rendered room list HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /components/chat-page:
+    post:
+      summary: Render ChatPage component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatPageProps'
+      responses:
+        '200':
+          description: Rendered chat page HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /components/message-list:
+    post:
+      summary: Render MessageList component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageListProps'
+      responses:
+        '200':
+          description: Rendered message list HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /components/message-input:
+    post:
+      summary: Render MessageInput component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageInputProps'
+      responses:
+        '200':
+          description: Rendered message input HTML
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /components/online-users:
+    post:
+      summary: Render OnlineUsers component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnlineUsersProps'
+      responses:
+        '200':
+          description: Rendered online users HTML
+          content:
+            text/html:
+              schema:
+                type: string

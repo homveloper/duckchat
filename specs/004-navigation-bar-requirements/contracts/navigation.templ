@@ -1,0 +1,339 @@
+/*
+Navigation Templ Template Contracts
+This file defines the expected Templ template structure and component interfaces for implementation.
+
+Note: This is a documentation file. Actual implementation will be in:
+- backend/web/templates/components/navigation.templ
+
+Import paths shown are for reference and will be resolved during implementation.
+*/
+
+// package components
+
+// import (
+// 	"duckchat/internal/ui/models" // Will be available during implementation
+// )
+
+// NavigationData represents the data structure passed to navigation templates
+// type NavigationData struct {
+// 	CurrentUser    *models.UserContext `json:"currentUser,omitempty"`
+// 	ActiveSection  string              `json:"activeSection"`    // "chat" | "profile"
+// 	Items          []NavigationItem    `json:"items"`
+// 	ContainerClass string              `json:"containerClass"`
+// 	LayoutMode     string              `json:"layoutMode"`       // "mobile" | "desktop"
+// }
+
+// NavigationItem represents individual navigation items
+// type NavigationItem struct {
+// 	ID       string `json:"id"`       // "chat" | "profile"
+// 	Label    string `json:"label"`    // "Chat" | "Profile"
+// 	Icon     string `json:"icon"`     // Heroicon name
+// 	IconPath string `json:"iconPath"` // SVG path data
+// 	Href     string `json:"href"`     // Target URL
+// 	IsActive bool   `json:"isActive"` // Computed active state
+// }
+
+// Expected Templ Component Signatures:
+
+// Option A: Zero JavaScript (Pure Server-Side)
+// Usage: @NavigationSSR(currentPath, navigationData)
+// templ NavigationSSR(currentPath string, data *NavigationData) {
+// 	<div class="@container navigation-container">
+// 		<nav class="navigation responsive-nav" hx-boost="true">
+// 			for _, item := range data.Items {
+// 				<a href={ item.Href }
+// 				   class={ "nav-item", templ.KV("active", currentPath == item.Href) }
+// 				   hx-get={ item.Href }
+// 				   hx-target="body"
+// 				   hx-push-url="true">
+// 					<svg class="nav-icon" viewBox="0 0 24 24">
+// 						<path d={ item.IconPath }></path>
+// 					</svg>
+// 					<span class="nav-label">{ item.Label }</span>
+// 				</a>
+// 			}
+// 		</nav>
+// 	</div>
+// }
+
+// Option B: HTMX + Alpine.js Hybrid (RECOMMENDED)
+// - HTMX handles navigation
+// - Alpine.js handles UI state based on URL
+// - No server state management needed
+// Usage: @NavigationHybrid(navigationData)
+// templ NavigationHybrid(data *NavigationData) {
+// 	<div x-data="{
+// 	       getCurrentSection() {
+// 	         const path = window.location.pathname;
+// 	         if (path.startsWith('/rooms') || path === '/') return 'chat';
+// 	         if (path.startsWith('/profile')) return 'profile';
+// 	         return 'chat';
+// 	       },
+// 	       activeSection: 'chat'
+// 	     }"
+// 	     x-init="activeSection = getCurrentSection()"
+// 	     class="@container navigation-container">
+//
+// 		<nav class="navigation responsive-nav">
+// 			for _, item := range data.Items {
+// 				<a href={ item.Href }
+// 				   class="nav-item"
+// 				   :class="{ 'active': activeSection === '{ item.ID }' }"
+// 				   hx-get={ item.Href }
+// 				   hx-target="main"
+// 				   hx-push-url="true"
+// 				   @htmx:after-request="activeSection = getCurrentSection()">
+// 					<svg class="nav-icon" viewBox="0 0 24 24">
+// 						<path d={ item.IconPath }></path>
+// 					</svg>
+// 					<span class="nav-label">{ item.Label }</span>
+// 				</a>
+// 			}
+// 		</nav>
+// 	</div>
+// }
+
+// Option C: Hybrid (HTMX + CSS fallback)
+// Usage: @Navigation(currentPath, navigationData)
+// templ Navigation(currentPath string, data *NavigationData) {
+// 	<div class="@container navigation-container" data-current-path={ currentPath }>
+// 		<nav class="navigation responsive-nav" hx-boost="true">
+// 			for _, item := range data.Items {
+// 				<a href={ item.Href }
+// 				   class={ "nav-item", templ.KV("active", currentPath == item.Href) }
+// 				   data-section={ item.ID }
+// 				   hx-get={ item.Href }
+// 				   hx-target="body"
+// 				   hx-push-url="true"
+// 				   hx-indicator="#loading">
+// 					<svg class="nav-icon" viewBox="0 0 24 24">
+// 						<path d={ item.IconPath }></path>
+// 					</svg>
+// 					<span class="nav-label">{ item.Label }</span>
+// 				</a>
+// 			}
+// 		</nav>
+// 	</div>
+// }
+
+// 	<!-- Container query styles -->
+// 	<style>
+// 		.navigation-container {
+// 			container-type: inline-size;
+// 			container-name: navigation;
+// 		}
+//
+// 		/* Mobile layout (default) */
+// 		.responsive-nav {
+// 			/* CSS classes from DefaultCSSClasses().Navigation */
+// 		}
+//
+// 		/* Desktop layout */
+// 		@container navigation (min-width: 768px) {
+// 			.responsive-nav {
+// 				/* Desktop-specific overrides */
+// 			}
+// 		}
+// 	</style>
+//
+// 	<!-- JavaScript for state management -->
+// 	<script>
+// 		// Navigation state management
+// 		// Session storage integration
+// 		// Container query detection
+// 	</script>
+// }
+
+// NavigationItem renders individual navigation items with responsive styling
+// Usage: @NavigationItem(&item, isActive)
+// templ NavigationItem(item *NavigationItem, isActive bool) {
+// 	<button
+// 		class={
+// 			"nav-item",
+// 			templ.KV("nav-item-active", isActive)
+// 		}
+// 		data-section={ item.ID }
+// 		data-href={ item.Href }
+// 		onclick="handleNavigationClick(this)"
+// 		aria-label={ "Navigate to " + item.Label }
+// 		data-testid={ "nav-item-" + item.ID }
+// 	>
+// 		<!-- Heroicon SVG -->
+// 		<svg
+// 			class="nav-icon"
+// 			fill="none"
+// 			stroke="currentColor"
+// 			viewBox="0 0 24 24"
+// 			aria-hidden="true"
+// 		>
+// 			<path
+// 				stroke-linecap="round"
+// 				stroke-linejoin="round"
+// 				stroke-width="2"
+// 				d={ item.IconPath }
+// 			></path>
+// 		</svg>
+//
+// 		<!-- Item label -->
+// 		<span class="nav-label">
+// 			{ item.Label }
+// 		</span>
+// 	</button>
+// }
+
+// NavigationContainer wraps navigation with proper container context
+// This provides the container query context for responsive behavior
+// Usage: @NavigationContainer(content)
+// templ NavigationContainer(content templ.Component) {
+// 	<div class="navigation-wrapper @container">
+// 		@content
+// 	</div>
+// }
+
+// Expected CSS Classes Contract (Tailwind):
+
+// Container classes:
+// - @container: Enables container queries
+// - navigation-container: Custom navigation container
+
+// Navigation classes (mobile-first):
+// - fixed bottom-0 left-0 right-0: Mobile bottom positioning
+// - flex flex-row justify-center: Mobile horizontal layout
+// - @[768px]:left-0 @[768px]:bottom-auto @[768px]:top-0: Desktop left positioning
+// - @[768px]:h-screen @[768px]:w-60: Desktop dimensions
+// - @[768px]:flex-col @[768px]:justify-start: Desktop vertical layout
+
+// Item classes:
+// - nav-item: Base navigation item
+// - flex items-center: Item layout
+// - justify-center flex-col gap-1: Mobile centered vertical
+// - @[768px]:justify-start @[768px]:flex-row @[768px]:gap-3: Desktop horizontal
+// - text-gray-600 hover:text-duck-blue-600: Color states
+// - transition-colors duration-200: Smooth color transitions
+
+// Active state classes:
+// - nav-item-active: Applied when isActive=true
+// - text-duck-blue-600 bg-duck-blue-50: Active colors
+
+// Icon classes:
+// - nav-icon: Base icon styling
+// - w-5 h-5: Mobile icon size
+// - @[768px]:w-6 @[768px]:h-6: Desktop icon size
+
+// Label classes:
+// - nav-label: Base label styling
+// - text-xs: Mobile label size
+// - @[768px]:text-sm: Desktop label size
+
+// Expected JavaScript Interface:
+
+// Navigation state management:
+// - NavigationManager class
+// - handleNavigationClick(element) function
+// - setActiveSection(section) function
+// - updateNavigationUI() function
+// - saveNavigationState() function
+// - restoreNavigationState() function
+
+// Container query detection:
+// - detectContainerSize() function
+// - onContainerResize(callback) function
+// - isDesktopLayout() function
+
+// Session storage integration:
+// - saveToSession(state) function
+// - loadFromSession() function
+// - clearSession() function
+
+// Expected Data Flow:
+
+// 1. Server-side (Go):
+//    - Handler creates NavigationData
+//    - Determines activeSection from route/user state
+//    - Renders Navigation(data) template
+//    - Serves to client
+
+// 2. Client-side (JavaScript):
+//    - Initializes NavigationManager
+//    - Restores state from sessionStorage
+//    - Sets up container query listeners
+//    - Handles user interactions
+//    - Updates server state via HTMX (optional)
+
+// 3. Template Rendering:
+//    - Navigation() renders container
+//    - NavigationItem() renders individual items
+//    - CSS handles responsive layout
+//    - JavaScript manages state
+
+// Integration with Existing DuckChat Templates:
+
+// In base layout template:
+// @Navigation(layoutData.NavigationData)
+
+// In room list template:
+// - Add margin/padding for navigation space
+// - Update container queries for proper spacing
+
+// In other page templates:
+// - Include navigation data in template data
+// - Update active section based on current route
+
+// Expected Props from DuckChat Handlers:
+
+// type TemplateData struct {
+//     CurrentUser    *models.UserContext
+//     NavigationData *NavigationData
+//     // ... other existing fields
+// }
+
+// Handler example:
+// func (h *Handler) RoomsGetHandler(w http.ResponseWriter, r *http.Request) {
+//     user := h.getCurrentUser(r)
+//     navData := &NavigationData{
+//         CurrentUser:   user,
+//         ActiveSection: "chat",
+//         Items:         DefaultNavigationItems(),
+//         LayoutMode:    "auto", // Will be determined by CSS
+//     }
+//
+//     templateData := &TemplateData{
+//         CurrentUser:    user,
+//         NavigationData: navData,
+//         // ... other fields
+//     }
+//
+//     err := components.PageWithNavigation(templateData).Render(r.Context(), w)
+// }
+
+// Container Query CSS Requirements:
+
+// .navigation-container {
+//   container-type: inline-size;
+//   container-name: navigation;
+// }
+
+// @container navigation (max-width: 767px) {
+//   .responsive-nav {
+//     /* Mobile styles */
+//     position: fixed;
+//     bottom: 0;
+//     left: 0;
+//     right: 0;
+//     flex-direction: row;
+//     justify-content: center;
+//   }
+// }
+
+// @container navigation (min-width: 768px) {
+//   .responsive-nav {
+//     /* Desktop styles */
+//     position: fixed;
+//     left: 0;
+//     top: 0;
+//     height: 100vh;
+//     width: 15rem; /* w-60 */
+//     flex-direction: column;
+//     justify-content: flex-start;
+//   }
+// }

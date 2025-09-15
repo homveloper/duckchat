@@ -1,0 +1,371 @@
+openapi: 3.0.3
+info:
+  title: DuckChat UI Endpoints API
+  description: Server-side rendered UI endpoints for Templ components
+  version: 0.3.0
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+paths:
+  /login:
+    get:
+      summary: Display login form
+      operationId: getLoginForm
+      responses:
+        '200':
+          description: Login form page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Rendered login.templ template
+        '302':
+          description: Redirect if already authenticated
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "/rooms"
+
+    post:
+      summary: Process login submission
+      operationId: submitLogin
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - csrf_token
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                  pattern: '^[a-zA-Z0-9_]+$'
+                password:
+                  type: string
+                  minLength: 6
+                csrf_token:
+                  type: string
+      responses:
+        '302':
+          description: Successful login redirect
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "auth_token=jwt_token; HttpOnly; Secure; SameSite=Strict"
+            Location:
+              schema:
+                type: string
+                example: "/rooms"
+        '400':
+          description: Login form with validation errors
+          content:
+            text/html:
+              schema:
+                type: string
+                description: login.templ with error state
+        '429':
+          description: Rate limit exceeded
+          content:
+            text/html:
+              schema:
+                type: string
+                description: login.templ with rate limit error
+
+  /logout:
+    post:
+      summary: User logout
+      operationId: logout
+      security:
+        - cookieAuth: []
+      responses:
+        '302':
+          description: Logout redirect to login
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "auth_token=; HttpOnly; Secure; SameSite=Strict; Max-Age=0"
+            Location:
+              schema:
+                type: string
+                example: "/login"
+
+  /rooms:
+    get:
+      summary: Display room list and creation interface
+      operationId: getRoomsList
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Rooms list page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Rendered rooms.templ template
+        '401':
+          description: Authentication required
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "/login"
+
+    post:
+      summary: Create new chat room
+      operationId: createRoom
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - room_name
+                - csrf_token
+              properties:
+                room_name:
+                  type: string
+                  minLength: 3
+                  maxLength: 30
+                  pattern: '^[a-zA-Z0-9\s\-]+$'
+                description:
+                  type: string
+                  maxLength: 200
+                is_private:
+                  type: boolean
+                  default: false
+                csrf_token:
+                  type: string
+      responses:
+        '302':
+          description: Room created, redirect to chat
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "/chat/room-id-123"
+        '400':
+          description: Room creation form with errors
+          content:
+            text/html:
+              schema:
+                type: string
+                description: rooms.templ with validation errors
+        '409':
+          description: Room name already exists
+          content:
+            text/html:
+              schema:
+                type: string
+                description: rooms.templ with conflict error
+
+  /chat/{roomId}:
+    get:
+      summary: Display chat interface for specific room
+      operationId: getChatRoom
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9\-_]+$'
+      responses:
+        '200':
+          description: Chat room interface
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Rendered chat.templ template
+        '401':
+          description: Authentication required
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "/login"
+        '403':
+          description: Access denied to private room
+          content:
+            text/html:
+              schema:
+                type: string
+                description: error.templ with access denied message
+        '404':
+          description: Room not found
+          content:
+            text/html:
+              schema:
+                type: string
+                description: error.templ with not found message
+
+  /messages:
+    post:
+      summary: Send new message via HTMX
+      operationId: sendMessage
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - content
+                - room_id
+                - csrf_token
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                room_id:
+                  type: string
+                csrf_token:
+                  type: string
+      responses:
+        '200':
+          description: Message sent, return empty response for HTMX
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Empty or success indicator
+        '400':
+          description: Validation error fragment
+          content:
+            text/html:
+              schema:
+                type: string
+                description: error-message.templ fragment
+        '429':
+          description: Rate limit error fragment
+          content:
+            text/html:
+              schema:
+                type: string
+                description: rate-limit-error.templ fragment
+
+  /events/{roomId}:
+    get:
+      summary: Server-Sent Events stream for real-time messages
+      operationId: getEventStream
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            description: Resume stream from specific event ID
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-sent events with message data
+              example: |
+                event: message
+                id: msg-123
+                data: <div class="message">New message content</div>
+
+                event: user-joined
+                id: join-456
+                data: <div class="user-status">User joined</div>
+        '401':
+          description: Authentication required
+        '403':
+          description: Access denied to private room
+
+  # HTMX Fragment Endpoints
+  /fragments/message-input:
+    get:
+      summary: Get message input form fragment
+      operationId: getMessageInputFragment
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: room_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message input form fragment
+          content:
+            text/html:
+              schema:
+                type: string
+                description: message-input.templ fragment
+
+  /fragments/online-users/{roomId}:
+    get:
+      summary: Get online users list fragment
+      operationId: getOnlineUsersFragment
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Online users list fragment
+          content:
+            text/html:
+              schema:
+                type: string
+                description: online-users.templ fragment
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT token stored as HttpOnly cookie
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
+        field:
+          type: string
+          description: Field name for validation errors (optional)
+
+security:
+  - cookieAuth: []

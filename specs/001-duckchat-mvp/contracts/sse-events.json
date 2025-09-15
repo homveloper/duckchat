@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DuckChat SSE Events",
+  "description": "JSON-RPC 2.0 Notifications sent via Server-Sent Events",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "Message Received",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {"const": "2.0"},
+        "method": {"const": "message.received"},
+        "params": {
+          "type": "object",
+          "properties": {
+            "message_id": {"type": "string"},
+            "room_id": {"type": "string"},
+            "user_id": {"type": "string"},
+            "username": {"type": "string"},
+            "content": {"type": "string"},
+            "timestamp": {"type": "string", "format": "date-time"},
+            "message_type": {"type": "string", "enum": ["text", "system"]}
+          },
+          "required": ["message_id", "room_id", "user_id", "username", "content", "timestamp", "message_type"]
+        }
+      },
+      "required": ["jsonrpc", "method", "params"]
+    },
+    {
+      "title": "User Joined",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {"const": "2.0"},
+        "method": {"const": "user.joined"},
+        "params": {
+          "type": "object",
+          "properties": {
+            "room_id": {"type": "string"},
+            "user_id": {"type": "string"},
+            "username": {"type": "string"},
+            "participant_count": {"type": "integer"},
+            "timestamp": {"type": "string", "format": "date-time"}
+          },
+          "required": ["room_id", "user_id", "username", "participant_count", "timestamp"]
+        }
+      },
+      "required": ["jsonrpc", "method", "params"]
+    },
+    {
+      "title": "User Left",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {"const": "2.0"},
+        "method": {"const": "user.left"},
+        "params": {
+          "type": "object",
+          "properties": {
+            "room_id": {"type": "string"},
+            "user_id": {"type": "string"},
+            "username": {"type": "string"},
+            "participant_count": {"type": "integer"},
+            "timestamp": {"type": "string", "format": "date-time"}
+          },
+          "required": ["room_id", "user_id", "username", "participant_count", "timestamp"]
+        }
+      },
+      "required": ["jsonrpc", "method", "params"]
+    },
+    {
+      "title": "Room Error",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {"const": "2.0"},
+        "method": {"const": "room.error"},
+        "params": {
+          "type": "object",
+          "properties": {
+            "room_id": {"type": "string"},
+            "error_code": {"type": "string"},
+            "error_message": {"type": "string"},
+            "timestamp": {"type": "string", "format": "date-time"}
+          },
+          "required": ["room_id", "error_code", "error_message", "timestamp"]
+        }
+      },
+      "required": ["jsonrpc", "method", "params"]
+    },
+    {
+      "title": "Username Changed",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {"const": "2.0"},
+        "method": {"const": "user.usernameChanged"},
+        "params": {
+          "type": "object",
+          "properties": {
+            "user_id": {"type": "string"},
+            "old_username": {"type": "string"},
+            "new_username": {"type": "string"},
+            "timestamp": {"type": "string", "format": "date-time"}
+          },
+          "required": ["user_id", "old_username", "new_username", "timestamp"]
+        }
+      },
+      "required": ["jsonrpc", "method", "params"]
+    },
+    {
+      "title": "Connection Status",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {"const": "2.0"},
+        "method": {"const": "connection.status"},
+        "params": {
+          "type": "object",
+          "properties": {
+            "status": {"type": "string", "enum": ["connected", "reconnected", "error"]},
+            "message": {"type": "string"},
+            "timestamp": {"type": "string", "format": "date-time"}
+          },
+          "required": ["status", "timestamp"]
+        }
+      },
+      "required": ["jsonrpc", "method", "params"]
+    }
+  ]
+}

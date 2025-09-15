@@ -1,0 +1,398 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DuckChat API",
+    "description": "Real-time chat application API using JSON-RPC 2.0 with RPC-style endpoints",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/api/auth.login": {
+      "post": {
+        "summary": "Authenticate user and receive JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                  "method": {"type": "string", "enum": ["auth.login"]},
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "username": {"type": "string", "minLength": 1, "maxLength": 50}
+                    },
+                    "required": ["username"]
+                  },
+                  "id": {"type": ["string", "number"]}
+                },
+                "required": ["jsonrpc", "method", "params", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "token": {"type": "string"},
+                        "user_id": {"type": "string"},
+                        "username": {"type": "string"}
+                      },
+                      "required": ["token", "user_id", "username"]
+                    },
+                    "id": {"type": ["string", "number"]}
+                  },
+                  "required": ["jsonrpc", "result", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms.create": {
+      "post": {
+        "summary": "Create new chat room",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                  "method": {"type": "string", "enum": ["rooms.create"]},
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string", "minLength": 1, "maxLength": 100}
+                    },
+                    "required": ["name"]
+                  },
+                  "id": {"type": ["string", "number"]}
+                },
+                "required": ["jsonrpc", "method", "params", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Room created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "room_id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "created_at": {"type": "string", "format": "date-time"}
+                      },
+                      "required": ["room_id", "name", "created_at"]
+                    },
+                    "id": {"type": ["string", "number"]}
+                  },
+                  "required": ["jsonrpc", "result", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms.join": {
+      "post": {
+        "summary": "Join existing chat room",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                  "method": {"type": "string", "enum": ["rooms.join"]},
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "room_id": {"type": "string"}
+                    },
+                    "required": ["room_id"]
+                  },
+                  "id": {"type": ["string", "number"]}
+                },
+                "required": ["jsonrpc", "method", "params", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully joined room",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "room_id": {"type": "string"},
+                        "name": {"type": "string"},
+                        "participant_count": {"type": "integer"}
+                      },
+                      "required": ["room_id", "name", "participant_count"]
+                    },
+                    "id": {"type": ["string", "number"]}
+                  },
+                  "required": ["jsonrpc", "result", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages.send": {
+      "post": {
+        "summary": "Send message to chat room",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                  "method": {"type": "string", "enum": ["messages.send"]},
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "room_id": {"type": "string"},
+                      "content": {"type": "string", "minLength": 1, "maxLength": 1000}
+                    },
+                    "required": ["room_id", "content"]
+                  },
+                  "id": {"type": ["string", "number"]}
+                },
+                "required": ["jsonrpc", "method", "params", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "message_id": {"type": "string"},
+                        "timestamp": {"type": "string", "format": "date-time"}
+                      },
+                      "required": ["message_id", "timestamp"]
+                    },
+                    "id": {"type": ["string", "number"]}
+                  },
+                  "required": ["jsonrpc", "result", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/messages.history": {
+      "post": {
+        "summary": "Get chat room message history",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                  "method": {"type": "string", "enum": ["messages.history"]},
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "room_id": {"type": "string"},
+                      "limit": {"type": "integer", "default": 50, "maximum": 100},
+                      "before": {"type": "string", "format": "date-time", "description": "Get messages before this timestamp"}
+                    },
+                    "required": ["room_id"]
+                  },
+                  "id": {"type": ["string", "number"]}
+                },
+                "required": ["jsonrpc", "method", "params", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message history retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "messages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "message_id": {"type": "string"},
+                              "user_id": {"type": "string"},
+                              "username": {"type": "string", "description": "Resolved at query time from user profile"},
+                              "content": {"type": "string"},
+                              "timestamp": {"type": "string", "format": "date-time"},
+                              "message_type": {"type": "string", "enum": ["text", "system"]}
+                            },
+                            "required": ["message_id", "user_id", "username", "content", "timestamp", "message_type"]
+                          }
+                        },
+                        "has_more": {"type": "boolean"}
+                      },
+                      "required": ["messages", "has_more"]
+                    },
+                    "id": {"type": ["string", "number"]}
+                  },
+                  "required": ["jsonrpc", "result", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users.updateUsername": {
+      "post": {
+        "summary": "Update user's display name/nickname",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                  "method": {"type": "string", "enum": ["users.updateUsername"]},
+                  "params": {
+                    "type": "object",
+                    "properties": {
+                      "username": {"type": "string", "minLength": 1, "maxLength": 50}
+                    },
+                    "required": ["username"]
+                  },
+                  "id": {"type": ["string", "number"]}
+                },
+                "required": ["jsonrpc", "method", "params", "id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Username updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {"type": "string", "enum": ["2.0"]},
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "user_id": {"type": "string"},
+                        "username": {"type": "string"},
+                        "updated_at": {"type": "string", "format": "date-time"}
+                      },
+                      "required": ["user_id", "username", "updated_at"]
+                    },
+                    "id": {"type": ["string", "number"]}
+                  },
+                  "required": ["jsonrpc", "result", "id"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms.events": {
+      "get": {
+        "summary": "Server-Sent Events stream for real-time updates",
+        "security": [{"bearerAuth": []}],
+        "parameters": [
+          {
+            "name": "room_id",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "Room ID to subscribe to events"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream established",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "JSON-RPC 2.0 Notifications as SSE events",
+                  "example": "data: {\"jsonrpc\":\"2.0\",\"method\":\"message.received\",\"params\":{\"message_id\":\"123\",\"user_id\":\"456\",\"username\":\"John\",\"content\":\"Hello\",\"timestamp\":\"2025-09-14T12:00:00Z\"}}\n\n"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
