@@ -1,0 +1,755 @@
+openapi: 3.0.3
+info:
+  title: DuckChat - Chat System API
+  description: JSON-RPC 2.0 hybrid API for real-time chat system with rooms and messaging
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+# JSON-RPC 2.0 Protocol Implementation
+# - All requests use POST method with JSON-RPC 2.0 request structure
+# - All responses return HTTP 200 with JSON-RPC 2.0 response structure
+# - Errors are handled via JSON-RPC 2.0 error codes, not HTTP status codes
+# - Middleware layer errors also return HTTP 200 with internal error codes
+
+paths:
+  /api/rooms.list:
+    post:
+      summary: List all available chat rooms
+      description: Get list of all public chat rooms with metadata using JSON-RPC 2.0
+      tags:
+        - Rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ["2.0"]
+                  example: "2.0"
+                method:
+                  type: string
+                  enum: ["rooms.list"]
+                  example: "rooms.list"
+                params:
+                  type: object
+                  properties:
+                    filters:
+                      type: object
+                      properties:
+                        is_active:
+                          type: boolean
+                          default: true
+                        created_after:
+                          type: string
+                          format: date-time
+                    limit:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 50
+                id:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: null
+                  example: 1
+      responses:
+        '200':
+          description: JSON-RPC 2.0 Response (always HTTP 200)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/JsonRpcSuccessResponse'
+                  - $ref: '#/components/schemas/JsonRpcErrorResponse'
+              examples:
+                success:
+                  value:
+                    jsonrpc: "2.0"
+                    result:
+                      rooms:
+                        - id: "550e8400-e29b-41d4-a716-446655440000"
+                          title: "Project Discussion"
+                          participant_count: 5
+                          last_message_at: "2025-09-15T10:25:00Z"
+                      total_count: 1
+                    id: 1
+                authentication_error:
+                  value:
+                    jsonrpc: "2.0"
+                    error:
+                      code: -32001
+                      message: "Authentication required"
+                      data:
+                        error_type: "AUTHENTICATION_ERROR"
+                    id: 1
+                server_error:
+                  value:
+                    jsonrpc: "2.0"
+                    error:
+                      code: -32603
+                      message: "Internal error"
+                      data:
+                        error_type: "INTERNAL_SERVER_ERROR"
+                    id: 1
+
+  /api/rooms.create:
+    post:
+      summary: Create a new chat room
+      description: Create a new chat room and automatically join the creator using JSON-RPC 2.0
+      tags:
+        - Rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jsonrpc
+                - method
+                - params
+                - id
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ["2.0"]
+                  example: "2.0"
+                method:
+                  type: string
+                  enum: ["rooms.create"]
+                  example: "rooms.create"
+                params:
+                  type: object
+                  required:
+                    - title
+                  properties:
+                    title:
+                      type: string
+                      minLength: 3
+                      maxLength: 100
+                      description: Room title
+                      example: "Project Discussion"
+                    description:
+                      type: string
+                      maxLength: 500
+                      description: Optional room description
+                    is_private:
+                      type: boolean
+                      default: false
+                      description: Whether the room is private
+                id:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: null
+                  example: 2
+      responses:
+        '200':
+          description: JSON-RPC 2.0 Response (always HTTP 200)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/JsonRpcSuccessResponse'
+                  - $ref: '#/components/schemas/JsonRpcErrorResponse'
+              examples:
+                success:
+                  value:
+                    jsonrpc: "2.0"
+                    result:
+                      room:
+                        id: "550e8400-e29b-41d4-a716-446655440000"
+                        title: "Project Discussion"
+                        created_at: "2025-09-15T09:30:00Z"
+                        created_by: "123e4567-e89b-12d3-a456-426614174000"
+                        is_active: true
+                      redirect_url: "/rooms/550e8400-e29b-41d4-a716-446655440000"
+                    id: 2
+                validation_error:
+                  value:
+                    jsonrpc: "2.0"
+                    error:
+                      code: -32002
+                      message: "Validation failed"
+                      data:
+                        error_type: "VALIDATION_ERROR"
+                        field: "title"
+                        details: "Title must be between 3 and 100 characters"
+                    id: 2
+                conflict_error:
+                  value:
+                    jsonrpc: "2.0"
+                    error:
+                      code: -32004
+                      message: "Room title already exists"
+                      data:
+                        error_type: "RESOURCE_CONFLICT"
+                    id: 2
+
+  /api/rooms.join:
+    post:
+      summary: Join a chat room
+      description: Join an existing chat room as a participant
+      tags:
+        - Rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+              properties:
+                room_id:
+                  type: string
+                  format: uuid
+                  description: Room UUID to join
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Successfully joined room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      participant:
+                        $ref: '#/components/schemas/RoomParticipant'
+                      redirect_url:
+                        type: string
+                        example: "/rooms/550e8400-e29b-41d4-a716-446655440000"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Already a participant in this room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/rooms.leave:
+    post:
+      summary: Leave a chat room
+      description: Leave a chat room and stop receiving messages
+      tags:
+        - Rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+              properties:
+                room_id:
+                  type: string
+                  format: uuid
+                  description: Room UUID to leave
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Successfully left room
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/messages.history:
+    post:
+      summary: Get message history for a room
+      description: Retrieve paginated message history with cursor-based pagination
+      tags:
+        - Messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+              properties:
+                room_id:
+                  type: string
+                  format: uuid
+                  description: Room UUID
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                before:
+                  type: string
+                  description: Get messages before this Redis Stream ID (for pagination)
+                  example: "1694772610000-0"
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 50
+                  description: Number of messages to retrieve
+      responses:
+        '200':
+          description: Message history retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      messages:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MessageWithUser'
+                      has_more:
+                        type: boolean
+                        description: Whether more messages exist before the oldest returned
+                      next_cursor:
+                        type: string
+                        description: Redis Stream ID cursor for next page
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not a participant in this room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/messages.send:
+    post:
+      summary: Send a message to a room
+      description: Send a new message to the specified room
+      tags:
+        - Messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+                - content
+              properties:
+                room_id:
+                  type: string
+                  format: uuid
+                  description: Room UUID to send message to
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: Message content
+                  example: "Hello everyone!"
+                reply_to:
+                  type: string
+                  description: Optional Redis Stream ID of message being replied to
+                  example: "1694772600000-0"
+      responses:
+        '200':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      message:
+                        $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not a participant in this room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/sse.connect:
+    post:
+      summary: Establish Server-Sent Events connection for room updates
+      description: Subscribe to real-time updates for specified rooms
+      tags:
+        - Real-time
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_ids
+              properties:
+                room_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: List of room UUIDs to subscribe to
+                  example: ["550e8400-e29b-41d4-a716-446655440000", "660f9500-f30c-52e5-b827-557766551111"]
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream with the following event types:
+                  - message: New message in subscribed rooms
+                  - user_joined: User joined a subscribed room
+                  - user_left: User left a subscribed room
+                  - room_updated: Room metadata changed
+                  - error: Error occurred
+              examples:
+                message_event:
+                  value: |
+                    event: message
+                    data: {"id":"1694772600000-0","room_id":"550e8400-e29b-41d4-a716-446655440000","user_id":"123e4567-e89b-12d3-a456-426614174000","content":"Hello!","created_at":"2025-09-15T10:30:00Z","username":"john_doe"}
+
+                user_joined_event:
+                  value: |
+                    event: user_joined
+                    data: {"room_id":"550e8400-e29b-41d4-a716-446655440000","user_id":"456e7890-e12b-34d5-b678-901234567890","username":"jane_doe","joined_at":"2025-09-15T10:30:00Z"}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not a participant in one or more rooms
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: One or more rooms not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    # JSON-RPC 2.0 Base Schemas
+    JsonRpcSuccessResponse:
+      type: object
+      required:
+        - jsonrpc
+        - result
+        - id
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        result:
+          type: object
+          description: "Result data specific to each method"
+        id:
+          oneOf:
+            - type: string
+            - type: number
+            - type: null
+
+    JsonRpcErrorResponse:
+      type: object
+      required:
+        - jsonrpc
+        - error
+        - id
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: integer
+              description: "JSON-RPC 2.0 error code"
+            message:
+              type: string
+              description: "Error message"
+            data:
+              type: object
+              description: "Additional error information"
+              properties:
+                error_type:
+                  type: string
+                  description: "Internal error type identifier"
+        id:
+          oneOf:
+            - type: string
+            - type: number
+            - type: null
+
+    # Error Codes (JSON-RPC 2.0 + Custom)
+    # Standard JSON-RPC 2.0 error codes:
+    # -32700: Parse error
+    # -32600: Invalid Request
+    # -32601: Method not found
+    # -32602: Invalid params
+    # -32603: Internal error
+    # Custom application error codes:
+    # -32001: Authentication required
+    # -32002: Validation failed
+    # -32003: Resource not found
+    # -32004: Resource conflict
+    # -32005: Permission denied
+    # -32006: Rate limit exceeded
+
+    ChatRoom:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          minLength: 3
+          maxLength: 100
+          example: "Project Discussion"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-09-15T09:30:00Z"
+        created_by:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        is_active:
+          type: boolean
+          example: true
+      required:
+        - id
+        - title
+        - created_at
+        - created_by
+        - is_active
+
+    RoomWithMetadata:
+      allOf:
+        - $ref: '#/components/schemas/ChatRoom'
+        - type: object
+          properties:
+            participant_count:
+              type: integer
+              example: 5
+            last_message_at:
+              type: string
+              format: date-time
+              example: "2025-09-15T10:25:00Z"
+              nullable: true
+            last_message:
+              type: string
+              example: "See you tomorrow!"
+              nullable: true
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        room_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: "Hello everyone!"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-09-15T10:30:00Z"
+        edited_at:
+          type: string
+          format: date-time
+          example: "2025-09-15T10:35:00Z"
+          nullable: true
+      required:
+        - id
+        - room_id
+        - user_id
+        - content
+        - created_at
+
+    MessageWithUser:
+      allOf:
+        - $ref: '#/components/schemas/Message'
+        - type: object
+          properties:
+            username:
+              type: string
+              example: "john_doe"
+          required:
+            - username
+
+    RoomParticipant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440002"
+        room_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        user_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        joined_at:
+          type: string
+          format: date-time
+          example: "2025-09-15T09:30:00Z"
+        last_seen_at:
+          type: string
+          format: date-time
+          example: "2025-09-15T10:30:00Z"
+        is_active:
+          type: boolean
+          example: true
+      required:
+        - id
+        - room_id
+        - user_id
+        - joined_at
+        - last_seen_at
+        - is_active
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Room title already exists"
+        code:
+          type: string
+          description: Error code
+          example: "DUPLICATE_TITLE"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+      required:
+        - error
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Validation failed"
+            code: "VALIDATION_ERROR"
+            details:
+              field: "title"
+              message: "Title must be between 3 and 100 characters"
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Authentication required"
+            code: "UNAUTHORIZED"
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_cookie
+      description: Session-based authentication using cookies
+
+security:
+  - cookieAuth: []
