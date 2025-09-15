@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"duckchat/internal/jsonrpc"
 )
 
 // Handler handles user-related JSON-RPC requests
@@ -19,55 +21,21 @@ func NewHandler(service *Service) *Handler {
 	}
 }
 
-// JSONRPCRequest represents a JSON-RPC 2.0 request
-type JSONRPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
-	ID      interface{} `json:"id"`
-}
-
-// JSONRPCResponse represents a JSON-RPC 2.0 response
-type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *RPCError   `json:"error,omitempty"`
-	ID      interface{} `json:"id"`
-}
-
-// RPCError represents a JSON-RPC error
-type RPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// Error codes
-const (
-	ParseError      = -32700
-	InvalidRequest  = -32600
-	MethodNotFound  = -32601
-	InvalidParams   = -32602
-	InternalError   = -32603
-	AuthError       = -32001
-	ValidationError = -32002
-	UserError       = -32003
-)
 
 // HandleUser handles user-related JSON-RPC requests
 func (h *Handler) HandleUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Parse request
-	var req JSONRPCRequest
+	var req jsonrpc.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.sendError(w, ParseError, "Parse error", nil, nil)
+		jsonrpc.WriteError(w, jsonrpc.ParseError, "Parse error", nil, nil)
 		return
 	}
 
 	// Validate JSON-RPC version
-	if req.JSONRPC != "2.0" {
-		h.sendError(w, InvalidRequest, "Invalid Request", nil, req.ID)
+	if req.JSONRpc != "2.0" {
+		jsonrpc.WriteError(w, jsonrpc.InvalidRequest, "Invalid Request", nil, req.ID)
 		return
 	}
 
@@ -82,29 +50,29 @@ func (h *Handler) HandleUser(w http.ResponseWriter, r *http.Request) {
 	case "users.info":
 		h.handleGetUserInfo(w, r.Context(), req)
 	default:
-		h.sendError(w, MethodNotFound, "Method not found", nil, req.ID)
+		jsonrpc.WriteError(w, jsonrpc.MethodNotFound, "Method not found", nil, req.ID)
 	}
 }
 
 // handleCreateUser processes user creation requests
-func (h *Handler) handleCreateUser(w http.ResponseWriter, ctx context.Context, req JSONRPCRequest) {
+func (h *Handler) handleCreateUser(w http.ResponseWriter, ctx context.Context, req jsonrpc.Request) {
 	// Parse parameters
 	var createReq CreateUserRequest
 	if err := h.parseParams(req.Params, &createReq); err != nil {
-		h.sendError(w, InvalidParams, "Invalid params", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InvalidParams, "Invalid params", err.Error(), req.ID)
 		return
 	}
 
 	// Validate request
 	if err := ValidateCreateUserRequest(&createReq); err != nil {
-		h.sendError(w, ValidationError, "Validation failed", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.ValidationFailed, "Validation failed", err.Error(), req.ID)
 		return
 	}
 
 	// Process user creation
 	user, err := h.service.CreateUser(ctx, createReq.Username)
 	if err != nil {
-		h.sendError(w, UserError, "User creation failed", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InternalError, "User creation failed", err.Error(), req.ID)
 		return
 	}
 
@@ -114,29 +82,29 @@ func (h *Handler) handleCreateUser(w http.ResponseWriter, ctx context.Context, r
 		Username: user.Username.String(),
 	}
 
-	h.sendResult(w, userInfo, req.ID)
+	jsonrpc.WriteResponse(w, userInfo, req.ID)
 }
 
 // handleGetUser processes user retrieval requests
-func (h *Handler) handleGetUser(w http.ResponseWriter, ctx context.Context, req JSONRPCRequest) {
+func (h *Handler) handleGetUser(w http.ResponseWriter, ctx context.Context, req jsonrpc.Request) {
 	// Parse parameters
 	var getUserReq GetUserRequest
 	if err := h.parseParams(req.Params, &getUserReq); err != nil {
-		h.sendError(w, InvalidParams, "Invalid params", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InvalidParams, "Invalid params", err.Error(), req.ID)
 		return
 	}
 
 	// Convert string ID to UserID
 	userID, err := ParseUserID(getUserReq.UserID)
 	if err != nil {
-		h.sendError(w, ValidationError, "Invalid user ID", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.ValidationFailed, "Invalid user ID", err.Error(), req.ID)
 		return
 	}
 
 	// Get user
 	user, err := h.service.GetUser(ctx, userID)
 	if err != nil {
-		h.sendError(w, UserError, "Failed to get user", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InternalError, "Failed to get user", err.Error(), req.ID)
 		return
 	}
 
@@ -146,73 +114,73 @@ func (h *Handler) handleGetUser(w http.ResponseWriter, ctx context.Context, req 
 		Username: user.Username.String(),
 	}
 
-	h.sendResult(w, userInfo, req.ID)
+	jsonrpc.WriteResponse(w, userInfo, req.ID)
 }
 
 // handleUpdateUsername processes username update requests
-func (h *Handler) handleUpdateUsername(w http.ResponseWriter, ctx context.Context, req JSONRPCRequest) {
+func (h *Handler) handleUpdateUsername(w http.ResponseWriter, ctx context.Context, req jsonrpc.Request) {
 	// Get user ID from context (set by auth middleware)
 	userIDString, ok := ctx.Value("user_id").(string)
 	if !ok {
-		h.sendError(w, AuthError, "Authentication required", nil, req.ID)
+		jsonrpc.WriteError(w, jsonrpc.AuthenticationRequired, "Authentication required", nil, req.ID)
 		return
 	}
 
 	userID, err := ParseUserID(userIDString)
 	if err != nil {
-		h.sendError(w, AuthError, "Invalid user ID in token", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.AuthenticationRequired, "Invalid user ID in token", err.Error(), req.ID)
 		return
 	}
 
 	// Parse parameters
 	var updateReq UpdateUsernameRequest
 	if err := h.parseParams(req.Params, &updateReq); err != nil {
-		h.sendError(w, InvalidParams, "Invalid params", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InvalidParams, "Invalid params", err.Error(), req.ID)
 		return
 	}
 
 	// Validate request
 	if err := ValidateUpdateUsernameRequest(&updateReq); err != nil {
-		h.sendError(w, ValidationError, "Validation failed", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.ValidationFailed, "Validation failed", err.Error(), req.ID)
 		return
 	}
 
 	// Update username
 	user, err := h.service.UpdateUsername(ctx, userID, updateReq.NewUsername)
 	if err != nil {
-		h.sendError(w, UserError, "Username update failed", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InternalError, "Username update failed", err.Error(), req.ID)
 		return
 	}
 
 	// Convert to response format with updated_at timestamp
 	updateResponse := h.service.ToUserUpdateResponse(user)
 
-	h.sendResult(w, updateResponse, req.ID)
+	jsonrpc.WriteResponse(w, updateResponse, req.ID)
 }
 
 // handleGetUserInfo processes user info requests
-func (h *Handler) handleGetUserInfo(w http.ResponseWriter, ctx context.Context, req JSONRPCRequest) {
+func (h *Handler) handleGetUserInfo(w http.ResponseWriter, ctx context.Context, req jsonrpc.Request) {
 	// Get user ID from context (set by auth middleware)
 	userIDString, ok := ctx.Value("user_id").(string)
 	if !ok {
-		h.sendError(w, AuthError, "Authentication required", nil, req.ID)
+		jsonrpc.WriteError(w, jsonrpc.AuthenticationRequired, "Authentication required", nil, req.ID)
 		return
 	}
 
 	userID, err := ParseUserID(userIDString)
 	if err != nil {
-		h.sendError(w, AuthError, "Invalid user ID in token", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.AuthenticationRequired, "Invalid user ID in token", err.Error(), req.ID)
 		return
 	}
 
 	// Get user info
 	userInfo, err := h.service.GetUserInfo(ctx, userID)
 	if err != nil {
-		h.sendError(w, UserError, "Failed to get user info", err.Error(), req.ID)
+		jsonrpc.WriteError(w, jsonrpc.InternalError, "Failed to get user info", err.Error(), req.ID)
 		return
 	}
 
-	h.sendResult(w, userInfo, req.ID)
+	jsonrpc.WriteResponse(w, userInfo, req.ID)
 }
 
 // parseParams parses JSON-RPC parameters into a struct
@@ -234,47 +202,6 @@ func (h *Handler) parseParams(params interface{}, target interface{}) error {
 	return nil
 }
 
-// sendResult sends a successful JSON-RPC response
-func (h *Handler) sendResult(w http.ResponseWriter, result interface{}, id interface{}) {
-	response := JSONRPCResponse{
-		JSONRPC: "2.0",
-		Result:  result,
-		ID:      id,
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-// sendError sends a JSON-RPC error response
-func (h *Handler) sendError(w http.ResponseWriter, code int, message string, data interface{}, id interface{}) {
-	response := JSONRPCResponse{
-		JSONRPC: "2.0",
-		Error: &RPCError{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-		ID: id,
-	}
-
-	var httpStatus int
-	switch code {
-	case ParseError, InvalidRequest, InvalidParams, ValidationError:
-		httpStatus = http.StatusBadRequest
-	case MethodNotFound:
-		httpStatus = http.StatusNotFound
-	case AuthError:
-		httpStatus = http.StatusUnauthorized
-	case UserError:
-		httpStatus = http.StatusBadRequest
-	default:
-		httpStatus = http.StatusInternalServerError
-	}
-
-	w.WriteHeader(httpStatus)
-	json.NewEncoder(w).Encode(response)
-}
 
 // Request/Response types
 type CreateUserRequest struct {

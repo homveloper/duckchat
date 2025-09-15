@@ -169,7 +169,6 @@ type MessageResponse struct {
 	MessageID   string `json:"message_id"`
 	RoomID      string `json:"room_id"`
 	UserID      string `json:"user_id"`
-	Username    string `json:"username"` // Will be resolved from user service
 	Content     string `json:"content"`
 	Timestamp   string `json:"timestamp"`
 	MessageType string `json:"message_type"`
@@ -177,12 +176,11 @@ type MessageResponse struct {
 }
 
 // ToMessageResponse converts a Message to MessageResponse
-func (s *Service) ToMessageResponse(message *Message, username string) *MessageResponse {
+func (s *Service) ToMessageResponse(message *Message) *MessageResponse {
 	return &MessageResponse{
 		MessageID:   message.ID.String(),
 		RoomID:      message.RoomID,
 		UserID:      message.UserID,
-		Username:    username,
 		Content:     message.Content,
 		Timestamp:   message.Timestamp.Format("2006-01-02T15:04:05Z07:00"),
 		MessageType: string(message.MessageType),
@@ -210,11 +208,10 @@ type MessageHistoryResponse struct {
 }
 
 // ToMessageHistoryResponse converts MessageHistory to MessageHistoryResponse
-func (s *Service) ToMessageHistoryResponse(history *MessageHistory, usernameResolver func(userID string) string) *MessageHistoryResponse {
+func (s *Service) ToMessageHistoryResponse(history *MessageHistory) *MessageHistoryResponse {
 	responses := make([]MessageResponse, len(history.Messages))
 	for i, message := range history.Messages {
-		username := usernameResolver(message.UserID)
-		responses[i] = *s.ToMessageResponse(&message, username)
+		responses[i] = *s.ToMessageResponse(&message)
 	}
 
 	return &MessageHistoryResponse{
