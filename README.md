@@ -1,74 +1,47 @@
 # DuckChat
 
-A minimal chat service with unified REST API, supporting multiple server implementations.
+Go 백엔드와 Templ 템플릿 시스템으로 구축된 실시간 채팅 애플리케이션
 
-## Project Structure
+## 기술 스택
 
-```
-duckchat/
-├── servers/
-│   ├── cpp/           # C++ server implementation
-│   └── golang/        # Go server implementation (with templ-like HTML components)
-├── client/
-│   └── web/           # Web client (server-side rendered)
-├── docs/              # API documentation
-└── shared/            # Shared resources (API specs, types)
-```
+- **언어**: Go 1.23+
+- **템플릿**: 타입 안전 HTML 템플릿을 위한 Templ
+- **스타일링**: 컨테이너 쿼리를 지원하는 Tailwind CSS
+- **실시간 통신**: 실시간 업데이트를 위한 Server-Sent Events (SSE)
+- **저장소**: 데이터 지속성을 위한 Redis와 이벤트 스트리밍을 위한 Watermill
+- **API**: HTTP REST 엔드포인트를 통한 JSON-RPC 2.0
+- **프론트엔드**: 동적 상호작용을 위한 HTMX와 서버사이드 렌더링
 
-## Technology Stack
+## 아키텍처
 
-### Backend
-- **Protocol**: REST API with JSON-RPC 2.0 body
-- **Persistent Storage**: Redis Stack (RedisJSON + RediSearch)
-- **Real-time Communication**: Server-Sent Events (SSE) with JSON-RPC 2.0 Notifications
+**다층 서비스 아키텍처**:
+- 핸들러 → 서비스 → 리포지토리 → Redis
+- 메시지 브로드캐스팅을 위한 Watermill EventBus
 
-### C++ Server
-- **Language**: C++23 (modern style, auto-oriented)
-- **HTTP Library**: httplib
-- **Architecture**: 4-tier (Presentation → Application → Domain → Infrastructure)
+**인증 시스템**:
+- 쿠키 기반 세션을 가진 JWT 토큰
+- sessionStorage를 사용한 탭별 세션 관리
 
-### Go Server  
-- **Language**: Go
-- **HTML Rendering**: templ-like components
-- **Architecture**: Clean architecture
+**실시간 통신**:
+- 실시간 메시지 업데이트를 위한 SSE 엔드포인트
+- SSE를 통한 JSON-RPC 2.0 알림
 
-## Architecture (C++ Implementation)
 
-```
-┌─────────────────┐
-│ Presentation    │ ← HTTP handlers, SSE endpoints
-├─────────────────┤
-│ Application     │ ← Use cases, orchestration
-├─────────────────┤  
-│ Domain          │ ← Business logic, entities
-├─────────────────┤
-│ Infrastructure  │ ← Redis, external services
-└─────────────────┘
-```
+## 주요 기능
 
-## MVP Features
+### 인증 시스템
+- 임시 사용자를 위한 게스트 JWT 인증
+- 닉네임 기반 사용자 식별
+- JWT 기반 무상태 세션 관리
+- UI 엔드포인트를 위한 쿠키 기반 인증
 
-### Authentication
-1. **게스트 JWT 인증**
-   - 게스트 JWT 토큰 생성 (임시 사용자)
-   - 닉네임 기반 사용자 식별
-   - JWT 기반 상태 관리 (stateless)
+### 핵심 채팅 기능
+- 채팅방 생성 및 참여
+- 실시간 메시지 송수신
+- 페이지네이션을 지원하는 메시지 히스토리
+- 채팅방 관리 및 목록 조회
 
-### Core Chat Functionality
-2. **채팅방 생성/입장**
-   - 채팅방 생성 및 참여
-   - 채팅방별 독립적인 메시지 스트림
-
-3. **실시간 채팅**
-   - 메시지 전송 및 수신
-   - Server-Sent Events를 통한 실시간 업데이트
-
-4. **채팅 내역 보존**
-   - 이전 채팅 내역 스크롤링 (RediSearch 페이지네이션)
-   - RedisJSON 기반 메시지 영구 저장
-   - 메시지 전문 검색 (RediSearch)
-
-5. **채팅방 관리**
-   - 채팅방 리스트 표시 (RediSearch 정렬)
-   - 채팅방 검색 (이름/설명 기반)
-   - 채팅방 정보 조회 (RedisJSON)
+### 실시간 통신
+- 실시간 업데이트를 위한 Server-Sent Events
+- 탭별 세션 관리
+- 사용자 피드백을 위한 토스트 알림
